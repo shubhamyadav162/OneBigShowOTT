@@ -1,0 +1,77 @@
+{
+  "expo": {
+    "splash": {
+      "image": "./assets/logo_main.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "name": "Big Show",
+    "slug": "big-show",
+    "scheme": "bigshow",
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "favicon": "./assets/logo_main.png"
+    },
+    "android": {
+      "package": "com.shubhamyadav1.bigshow",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo_main.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0",
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "kotlinVersion": "1.7.1"
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/logo_main.png",
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e443ff19-a088-453f-b755-1da94ddc61f6"
+      },
+      "FIREBASE_API_KEY": "AIzaSyBtYkUzRdHLZWLfMnXBGMF8VWmEI0dFiMw",
+      "FIREBASE_AUTH_DOMAIN": "bigshow-dev.firebaseapp.com",
+      "FIREBASE_PROJECT_ID": "bigshow-dev",
+      "FIREBASE_STORAGE_BUCKET": "bigshow-dev.appspot.com",
+      "FIREBASE_MESSAGING_SENDER_ID": "363171386735",
+      "FIREBASE_APP_ID": "1:363171386735:web:5a47d94cd8edace5e03b8c",
+      "GOOGLE_ANDROID_CLIENT_ID": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com",
+      "GOOGLE_WEB_CLIENT_ID": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com",
+      "androidClientId": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com"
+    },
+    "ios": {
+      "bundleIdentifier": "com.shubhamyadav1.bigshow",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
