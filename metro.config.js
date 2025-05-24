@@ -24,4 +24,14 @@ config.reporter = {
   update: () => {},
 };
 
+// Add support for vector icons
+config.resolver.assetExts.push('ttf', 'otf');
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs'];
+
+// Add essential configurations for web
+if (process.env.PLATFORM_NAME === 'web') {
+  config.resolver.sourceExts.push('web.js', 'web.ts', 'web.tsx');
+  config.resolver.assetExts.push('svg', 'png', 'jpg', 'woff', 'woff2');
+}
+
 module.exports = config; 

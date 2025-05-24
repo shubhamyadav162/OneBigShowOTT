@@ -21,6 +21,8 @@ import Slider from '@react-native-community/slider';
 
 // Import API services
 import contentApi from '../../api/contentApi';
+import analyticsApi from '../../api/analyticsApi';
+import { auth } from '../../lib/firebaseClient';
 
 // Import theme
 import theme from '../../theme';
@@ -126,6 +128,7 @@ const VideoPlayerScreen = () => {
           if (response.success) {
             setVideoUrl(response.data.videoUrl);
             setVideoTitle(response.data.title);
+            analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
           }
         } 
         // Otherwise, fetch content details
@@ -134,6 +137,7 @@ const VideoPlayerScreen = () => {
           if (response.success) {
             setVideoUrl(response.data.videoUrl);
             setVideoTitle(response.data.title);
+            analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
           }
         }
         
@@ -151,6 +155,7 @@ const VideoPlayerScreen = () => {
       setVideoUrl(source);
       setVideoTitle(title || '');
       setIsBuffering(false);
+      analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
     } else {
       loadVideoDetails();
     }
@@ -209,7 +214,10 @@ const VideoPlayerScreen = () => {
   };
   
   // Handle play/pause
-  const togglePlayPause = () => {
+  const togglePlayPause = async () => {
+    if (isPlaying) {
+      analyticsApi.logEvent('watch_time', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: currentTime });
+    }
     setIsPlaying(prev => !prev);
   };
   
@@ -279,7 +287,7 @@ const VideoPlayerScreen = () => {
       
       // Handle video end
       if (status.didJustFinish && !status.isLooping) {
-        // Navigate back after a short delay or show replay UI
+        analyticsApi.logEvent('video_complete', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: Math.floor(status.durationMillis / 1000) });
         setTimeout(() => {
           navigation.goBack();
         }, 2000);

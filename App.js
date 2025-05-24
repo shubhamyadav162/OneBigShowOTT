@@ -1,10 +1,10 @@
 import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, LogBox, StyleSheet, Animated, View, Text } from 'react-native';
+import { StatusBar, LogBox, StyleSheet, Animated, View, Text, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider } from 'react-native-elements';
+import { ThemeProvider as ElementsThemeProvider } from 'react-native-elements';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { preventAutoHideAsync } from 'expo-splash-screen';
 import AppSplash from './src/components/common/AppSplash';
@@ -12,15 +12,18 @@ import ErrorBoundary from './src/components/common/ErrorBoundary';
 import * as WebBrowser from 'expo-web-browser';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
+import * as Font from 'expo-font';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Firebase initialization
-import { auth } from './src/lib/firebaseClient';
+import { auth } from './src/utils/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 import AuthContext from './src/context/AuthContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import MainNavigator from './src/navigation/MainNavigator';
 import { theme } from './src/theme';
+import AdminNavigator from './src/navigation/AdminNavigator';
 
 // Suppress warnings
 LogBox.ignoreLogs([
@@ -51,9 +54,10 @@ const getExpoConfig = () => {
 };
 
 const App = () => {
-  const [isAppReady, setIsAppReady] = useState(false);
+  const isWeb = Platform.OS === 'web';
+  const [isAppReady, setIsAppReady] = useState(isWeb);
   const [userToken, setUserToken] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(!isWeb);
   const [loadError, setLoadError] = useState(null);
   const splashOpacity = useRef(new Animated.Value(1)).current;
 
@@ -65,6 +69,7 @@ const App = () => {
 
   // Preload assets with retry mechanism
   useEffect(() => {
+    if (isWeb) return;
     const loadAssets = async () => {
       let retryCount = 0;
       const maxRetries = 3;
@@ -76,6 +81,13 @@ const App = () => {
           // Use a Promise.all to load multiple assets if needed
           await Promise.all([
             Asset.loadAsync(require('./assets/logo_main.png')),
+            // Load icon fonts
+            Font.loadAsync({
+              ...Ionicons.font,
+              'Ionicons': require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
+              ...MaterialCommunityIcons.font,
+              'MaterialCommunityIcons': require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf'),
+            }),
             // Add other assets here if needed
           ]);
           
@@ -109,10 +121,15 @@ const App = () => {
     }, 10000); // Extended to 10 seconds for slower connections
     
     return () => clearTimeout(timeout);
-  }, []);
+  }, [isWeb]);
 
   // Monitor Firebase auth state changes
   useEffect(() => {
+    if (isWeb) {
+      // Skip Firebase auth on web for now
+      return;
+    }
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Firebase auth state changed:', user ? `User: ${user.email}` : 'No user');
       if (user) {
@@ -131,7 +148,7 @@ const App = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isWeb]);
 
   // Splash fade-out handler
   const handlePlaybackStatus = (status) => {
@@ -176,7 +193,7 @@ const App = () => {
     >
       <ErrorBoundary>
         <SafeAreaProvider>
-          <ThemeProvider theme={theme}>
+          <ElementsThemeProvider theme={theme}>
             <StatusBar translucent={false} barStyle="light-content" backgroundColor={theme.colors.primary} />
             <NavigationContainer>
               {showSplash && (
@@ -184,9 +201,15 @@ const App = () => {
                   <AppSplash onPlaybackStatusUpdate={handlePlaybackStatus} />
                 </View>
               )}
-              {userToken ? <MainNavigator /> : <AuthNavigator />}
+              {Platform.OS === 'web' ? (
+                <AdminNavigator />
+              ) : userToken ? (
+                <MainNavigator />
+              ) : (
+                <AuthNavigator />
+              )}
             </NavigationContainer>
-          </ThemeProvider>
+          </ElementsThemeProvider>
         </SafeAreaProvider>
       </ErrorBoundary>
     </AuthContext.Provider>

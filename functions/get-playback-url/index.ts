@@ -35,9 +35,25 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Access denied" }), { status: 403 });
     }
 
-    // TODO: Call Bunny.net Stream API to get signed playback URL
-    // Placeholder until Bunny credentials are configured
-    return new Response(JSON.stringify({ url: "PLAYBACK_URL_PLACEHOLDER" }), { status: 200 });
+    // Call Bunny.net Stream API to get playback URL
+    const bunnyApiKey = Deno.env.get("BUNNY_STREAM_API_KEY");
+    const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID");
+    if (!bunnyApiKey || !libraryId) {
+      console.error('Bunny Stream credentials missing');
+      return new Response(JSON.stringify({ error: 'Playback service unavailable' }), { status: 503 });
+    }
+
+    const bunnyRes = await fetch(
+      `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`,
+      { headers: { AccessKey: bunnyApiKey } }
+    );
+    if (!bunnyRes.ok) {
+      console.error('Error fetching playback info from Bunny:', await bunnyRes.text());
+      return new Response(JSON.stringify({ error: 'Failed to retrieve playback URL' }), { status: bunnyRes.status });
+    }
+    const bunnyData = await bunnyRes.json();
+    const playbackUrl = bunnyData.Url || bunnyData.playbackUrl;
+    return new Response(JSON.stringify({ url: playbackUrl }), { status: 200 });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });

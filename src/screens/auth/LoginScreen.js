@@ -6,6 +6,9 @@ import AuthContext from '../../context/AuthContext';
 import theme from '../../theme';
 import LogoMain from '../../../assets/pnglogo.png';
 import GoogleSignInButton from '../../components/common/GoogleSignInButton';
+import { auth } from '../../utils/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import usersApi from '../../api/usersApi';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -14,10 +17,17 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [showManualLogin, setShowManualLogin] = useState(false);
 
-  const handleEmailLogin = () => {
-    // TODO: implement email login logic
-    // Simulate successful login
-    signIn('emailUser');
+  const handleEmailLogin = async () => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      // Ensure Firestore profile exists
+      await usersApi.createUserProfile({ uid: user.uid, email: user.email, name: user.displayName || '' });
+      signIn(user.uid);
+    } catch (error) {
+      console.error('Error signing in with email:', error);
+      // TODO: show error to user via UI
+    }
   };
 
   const handleOtherLogin = () => {
@@ -25,8 +35,10 @@ const LoginScreen = () => {
     navigation.navigate('Signup');
   };
 
-  const handleGoogleSignIn = (user) => {
+  const handleGoogleSignIn = async (user) => {
     console.log('User signed in with Google:', user.displayName);
+    // Ensure Firestore profile exists
+    await usersApi.createUserProfile({ uid: user.uid, email: user.email, name: user.displayName });
     signIn(user.uid);
   };
 

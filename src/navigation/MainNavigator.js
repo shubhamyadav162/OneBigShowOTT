@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, StyleSheet, Text, Image } from 'react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, IconNames } from '../components/common/Icons';
 
 // Import screens
 import HomeScreen from '../screens/main/HomeScreen';
@@ -34,6 +34,7 @@ import TermsAndConditionsScreen from '../screens/profile/TermsAndConditionsScree
 
 // Import theme
 import theme from '../theme';
+import AdminNavigator from './AdminNavigator';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -152,8 +153,17 @@ const MainNavigator = () => {
             iconName = focused ? 'tv' : 'tv-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'Admin') {
+            iconName = focused ? 'settings' : 'settings-outline';
           }
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View style={styles.iconContainer}>
+              <Icon name={iconName} size={size} color={color} />
+              <Text style={[styles.iconText, focused && styles.focusedText]}>
+                {route.name}
+              </Text>
+            </View>
+          );
         },
       })}
     >
@@ -161,6 +171,7 @@ const MainNavigator = () => {
       <Tab.Screen name="Upcoming" component={UpcomingStack} />
       <Tab.Screen name="WebSeries" component={WebSeriesStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
+      <Tab.Screen name="Admin" component={AdminNavigator} />
     </Tab.Navigator>
   );
 };

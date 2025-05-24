@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import Constants from 'expo-constants';
@@ -49,8 +49,8 @@ try {
   
   // Only initialize if we have the minimum required config
   if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId) {
-    // Initialize Firebase
-    const firebaseApp = initializeApp(firebaseConfig);
+    // Initialize Firebase (avoid duplicate-app errors)
+    const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     
     // Initialize Firebase Auth
     auth = getAuth(firebaseApp);

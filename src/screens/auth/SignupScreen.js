@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../theme';
+import AuthContext from '../../context/AuthContext';
+import authApi from '../../api/authApi';
+import usersApi from '../../api/usersApi';
+import { auth } from '../../utils/firebase';
+import { updateProfile } from 'firebase/auth';
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const { signUp } = useContext(AuthContext);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -24,9 +30,22 @@ const SignupScreen = ({ navigation }) => {
       return;
     }
 
-    // TODO: Implement actual signup logic
-    console.log('Signup with:', { name, email, password });
-    navigation.navigate('Login');
+    try {
+      const res = await authApi.register(email, password, name);
+      if (res.success) {
+        // Update Firebase Auth profile
+        await updateProfile(auth.currentUser, { displayName: name });
+        // Create Firestore user profile
+        await usersApi.createUserProfile({ uid: res.data.uid, email: res.data.email, name });
+        // Sign in and navigate to main app
+        signUp(res.data.uid);
+      } else {
+        Alert.alert('Signup Error', res.error);
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      Alert.alert('Signup Error', error.message);
+    }
   };
 
   return (
