@@ -1,0 +1,151 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-to-production" to confirm production deployment'
+        required: true
+
+jobs:
+  validate-input:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation input
+        if: ${{ github.event.inputs.confirm != 'deploy-to-production' }}
+        run: |
+          echo "Deployment confirmation text does not match required value."
+          echo "You must type 'deploy-to-production' exactly to proceed."
+          exit 1
+
+  verify-subscription-system:
+    needs: validate-input
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run subscription verification script
+        run: node scripts/verify-subscription-system.js --prod
+        env:
+          NODE_ENV: production
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+          PAYMENT_GATEWAY_SECRET: ${{ secrets.PAYMENT_GATEWAY_PROD_SECRET }}
+
+  deploy-edge-functions:
+    needs: verify-subscription-system
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install MCP CLI
+        run: npm install -g @supabase/mcp-cli
+
+      - name: Deploy Edge Functions
+        run: mcp deploy --profile production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          MCP_PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          MCP_PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+          MCP_PRODUCTION_PAYMENT_GATEWAY_SECRET: ${{ secrets.PAYMENT_GATEWAY_PROD_SECRET }}
+
+  run-smoke-tests:
+    needs: deploy-edge-functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        run: node scripts/smoke-test-production.js
+        env:
+          NODE_ENV: production
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PROD_ANON_KEY }}
+
+  build-and-submit-app:
+    needs: run-smoke-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and submit to app stores
+        run: |
+          echo "Building and submitting app to stores"
+          eas build --platform all --profile production --non-interactive --no-wait
+          eas submit --platform all --profile production --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          NODE_ENV: production
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PROD_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+          LIGHTSPEED_API_KEY: ${{ secrets.LIGHTSPEED_PROD_API_KEY }}
+          LIGHTSPEED_API_SECRET: ${{ secrets.LIGHTSPEED_PROD_API_SECRET }}
+
+  notify:
+    needs: [build-and-submit-app]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Send success notification
+        if: ${{ needs.build-and-submit-app.result == 'success' }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: releases
+          SLACK_COLOR: good
+          SLACK_TITLE: "Production Deployment Successful"
+          SLACK_MESSAGE: "OneBigShowOTT has been successfully deployed to production!"
+          SLACK_FOOTER: "OneBigShowOTT"
+
+      - name: Send failure notification
+        if: ${{ needs.build-and-submit-app.result != 'success' }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: alerts
+          SLACK_COLOR: danger
+          SLACK_TITLE: "Production Deployment Failed"
+          SLACK_MESSAGE: "OneBigShowOTT production deployment failed. Please check GitHub Actions logs."
+          SLACK_FOOTER: "OneBigShowOTT" 

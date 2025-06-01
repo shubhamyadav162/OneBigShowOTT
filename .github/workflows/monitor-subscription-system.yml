@@ -1,0 +1,86 @@
+name: Monitor Subscription System
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run verification script
+        run: node scripts/verify-subscription-system.js --prod
+        env:
+          NODE_ENV: production
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+
+      - name: Run smoke tests
+        run: node scripts/smoke-test-production.js
+        env:
+          NODE_ENV: production
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PROD_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PROD_ANON_KEY }}
+
+      - name: Send notification on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: alerts
+          SLACK_COLOR: danger
+          SLACK_TITLE: "Subscription System Alert"
+          SLACK_MESSAGE: "❌ The subscription system monitoring check has failed. Please investigate immediately."
+          SLACK_FOOTER: "OneBigShowOTT"
+
+  check-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check get-user-subscription function
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1/get-user-subscription
+          method: 'GET'
+          customHeaders: '{"Content-Type": "application/json"}'
+          timeout: 10000
+
+      - name: Check initialize-payment function
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1/initialize-payment
+          method: 'GET'
+          customHeaders: '{"Content-Type": "application/json"}'
+          timeout: 10000
+
+      - name: Check confirm-subscription function
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1/confirm-subscription
+          method: 'GET'
+          customHeaders: '{"Content-Type": "application/json"}'
+          timeout: 10000
+
+      - name: Send notification on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: alerts
+          SLACK_COLOR: danger
+          SLACK_TITLE: "Edge Functions Alert"
+          SLACK_MESSAGE: "❌ One or more subscription Edge Functions are not responding. Please investigate immediately."
+          SLACK_FOOTER: "OneBigShowOTT" 

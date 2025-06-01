@@ -1,0 +1,35 @@
+name: Deploy Subscription Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Setup Supabase CLI
+        run: |
+          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_$(uname -s)_x64.tar.gz | tar xz
+          sudo mv supabase /usr/local/bin
+
+      - name: Load Environment Variables
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          echo "LIGHTSPEED_API_KEY=${{ secrets.LIGHTSPEED_API_KEY }}" >> $GITHUB_ENV
+          echo "LIGHTSPEED_API_SECRET=${{ secrets.LIGHTSPEED_API_SECRET }}" >> $GITHUB_ENV
+
+      - name: Deploy Migrations & Functions
+        run: |
+          supabase login --no-browser --token ${{ secrets.SUPABASE_CLI_TOKEN }}
+          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          mcp deploy --profile production 
