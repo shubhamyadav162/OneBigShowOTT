@@ -8,7 +8,7 @@ import HeaderBar from '../../components/common/HeaderBar';
 import { ToastContainer } from '../../components/common/Toast';
 import themeBase from '../../theme';
 import { db } from '../../utils/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 
 const DashboardContent = ({ stats, navigation, seriesList }) => {
   const [expandedSection, setExpandedSection] = useState(null);
@@ -142,36 +142,46 @@ const DashboardScreen = () => {
   };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [seriesSnap, episodesSnap, usersSnap] = await Promise.all([
-          getDocs(collection(db, 'series')),
-          getDocs(collection(db, 'episodes')),
-          getDocs(collection(db, 'users'))
-        ]);
-        setStats({ series: seriesSnap.size, episodes: episodesSnap.size, users: usersSnap.size });
-      } catch (err) {
-        console.error('Error fetching collection stats:', err);
-        setError(err.message);
-        // Provide fallback stats when Firebase is unavailable
-        setStats({ series: '-', episodes: '-', users: '-' });
-      }
+    // Real-time stats for series, episodes, and users
+    const seriesUnsub = onSnapshot(collection(db, 'series'), snap => {
+      setStats(prev => ({ ...prev, series: snap.size }));
+    }, err => {
+      console.error('Error fetching series count:', err);
+      setError(prev => prev || err.message);
+    });
+
+    const episodesUnsub = onSnapshot(collection(db, 'episodes'), snap => {
+      setStats(prev => ({ ...prev, episodes: snap.size }));
+    }, err => {
+      console.error('Error fetching episodes count:', err);
+      setError(prev => prev || err.message);
+    });
+
+    const usersUnsub = onSnapshot(collection(db, 'users'), snap => {
+      setStats(prev => ({ ...prev, users: snap.size }));
+    }, err => {
+      console.error('Error fetching users count:', err);
+      setError(prev => prev || err.message);
+    });
+
+    return () => {
+      seriesUnsub();
+      episodesUnsub();
+      usersUnsub();
     };
-    fetchStats();
   }, []);
 
   // fetch all series for thumbnails
   useEffect(() => {
-    const fetchSeriesList = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'series'));
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setSeriesList(data);
-      } catch (err) {
-        console.error('Error fetching series for dashboard:', err);
-      }
-    };
-    fetchSeriesList();
+    // Real-time series list for dashboard thumbnails
+    const unsub = onSnapshot(collection(db, 'series'), snap => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSeriesList(data);
+    }, err => {
+      console.error('Error fetching series list:', err);
+    });
+
+    return () => unsub();
   }, []);
 
   // Responsive layout

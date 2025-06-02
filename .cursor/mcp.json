@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firebase-tools",
+        "experimental:mcp"
+      ],
+      "color": "yellow"
+    },
+    "browsermcp": {
+      "command": "npx",
+      "args": [
+        "@browsermcp/mcp@latest"
+      ]
+    },
+    "supabase": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@supabase/mcp-server-supabase",
+        "--access-token",
+        "sbp_7d174f0462e9ae16b9e7647a9cadef8383628c68",
+        "--project-ref",
+        "hjsdcsatfcysrwsryngu"
+      ],
+      "env": {
+        "SUPABASE_DB_PASSWORD": "Avanger@16143777",
+        "SUPABASE_REGION": "ap-south-1",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFub24iLCJpYXQiOjE3NDcxMDIwOTEsImV4cCI6MjA2MjY3ODA5MX0.X1m5n0q-bw4p7tetegdjq-uQoSVypPmrlko4_SZXjgw",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqc2Rjc2F0ZmN5c3J3c3J5bmd1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzEwMjA5MSwiZXhwIjoyMDYyNjc4MDkxfQ.BR-A3TEEErWOhUw8vHSy0jkToDsGGqNGCXiRwSpLrDk"
+      }
+    }
+  }
+} 

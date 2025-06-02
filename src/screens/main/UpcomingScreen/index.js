@@ -1,23 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, FlatList, Image, Text, Animated, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import theme from '../../theme';
-
-// Sample upcoming web series data
-const upcomingSeries = [
-  { id: '11', title: 'Rogue Agents', source: require('../../../assets/webimages/1061_64f6d09a0d2a0_360x540.jpg'), year: 2024, episodes: 8, rating: 0, description: 'Upcoming action-packed thriller.' },
-  { id: '12', title: 'Parallel Worlds', source: require('../../../assets/webimages/1061_64f6d2f130b4c_360x540.jpg'), year: 2024, episodes: 10, rating: 0, description: 'A sci-fi journey through dimensions.' },
-  { id: '13', title: 'Desert Storm', source: require('../../../assets/webimages/1061_64f6d4f999c10_360x540.jpg'), year: 2024, episodes: 6, rating: 0, description: 'A gripping story set in harsh landscapes.' },
-  { id: '14', title: 'Neon Nights', source: require('../../../assets/webimages/1061_64f6d51dd6a64_360x540.jpg'), year: 2024, episodes: 12, rating: 0, description: 'A neon-soaked urban mystery.' },
-  { id: '15', title: 'Dark Horizons', source: require('../../../assets/webimages/1061_64f6d581a1712_360x540.jpg'), year: 2024, episodes: 8, rating: 0, description: 'Secrets emerge in the dark.' },
-];
+import { db } from '../../../utils/firebase';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 
 const UpcomingScreen = () => {
   const navigation = useNavigation();
+  const [upcomingSeries, setUpcomingSeries] = useState([]);
+
+  useEffect(() => {
+    const now = Timestamp.now();
+    const q = query(
+      collection(db, 'series'),
+      where('isLive', '==', false),
+      where('publishDate', '>', now),
+      orderBy('publishDate', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, snapshot => {
+      const list = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          year: data.publishDate?.toDate().getFullYear() || new Date().getFullYear(),
+          episodes: Array.isArray(data.episodes) ? data.episodes.length : 0,
+          rating: data.rating || 0,
+          description: data.description || '',
+          source: { uri: data.thumbnailUrl || '' },
+        };
+      });
+      setUpcomingSeries(list);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const renderItem = ({ item }) => {
-    const scale = React.useRef(new Animated.Value(1)).current;
+    const scale = useRef(new Animated.Value(1)).current;
 
     const onPressIn = () => {
       Animated.spring(scale, {
@@ -33,15 +53,7 @@ const UpcomingScreen = () => {
       }).start(() => {
         navigation.navigate('WebSeries', {
           screen: 'WebSeriesDetail',
-          params: {
-            source: item.source,
-            id: item.id,
-            title: item.title,
-            year: item.year,
-            episodes: item.episodes,
-            rating: item.rating,
-            description: item.description,
-          },
+          params: { series: item },
         });
       });
     };

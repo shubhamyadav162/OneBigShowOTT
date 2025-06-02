@@ -2,26 +2,24 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 // Import screens
-import WelcomeScreen from '../screens/auth/WelcomeScreen';
-import LoginScreen from '../screens/auth/LoginScreen';
-import SignupScreen from '../screens/auth/SignupScreen';
+import AuthScreen from '../screens/auth/AuthScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import MainNavigator from './MainNavigator';
 
 const Stack = createStackNavigator();
 
 const AuthNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Login"
+      initialRouteName="LoginScreen"
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: '#000000' },
       }}
     >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen name="LoginScreen" component={AuthScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="MainTabs" component={MainNavigator} />
     </Stack.Navigator>
   );
 };

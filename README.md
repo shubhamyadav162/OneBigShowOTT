@@ -90,4 +90,24 @@ See the `context.md` file for a detailed development roadmap and technical archi
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Environment Variables
+
+This project uses a `.env` file to store sensitive configuration such as LightSpeedPay API credentials. Follow these steps to set it up:
+
+1. In the project root, create a new file named `.env`.
+2. Open the `.env` file and add the following variables:
+    ```dotenv
+    LIGHTSPEED_API_KEY=your_lightspeed_api_key_here
+    LIGHTSPEED_API_SECRET=your_lightspeed_api_secret_here
+    LIGHTSPEED_ENV=sandbox
+    LIGHTSPEED_WEBHOOK_URL=https://your-backend.com/api/lightspeed/webhook
+    LIGHTSPEED_SUCCESS_URL=bigshow://payment-success
+    LIGHTSPEED_FAILURE_URL=bigshow://payment-failure
+    LIGHTSPEED_WEBHOOK_TOKEN=your_webhook_bearer_token_here
+    ```
+3. Save the file and restart the Metro bundler:
+    ```bash
+    expo start -c
+    ```

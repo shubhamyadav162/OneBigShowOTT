@@ -1,43 +1,40 @@
-import 'react-native-url-polyfill/auto';
+import 'cross-fetch/polyfill';
+import 'react-native-get-random-values';
 import 'react-native-gesture-handler';
-import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, LogBox, StyleSheet, Animated, View, Text, Platform } from 'react-native';
+import 'react-native-url-polyfill/auto';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { StatusBar, LogBox, StyleSheet, Platform, Alert, Linking, Image, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider as ElementsThemeProvider } from 'react-native-elements';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { preventAutoHideAsync } from 'expo-splash-screen';
-import AppSplash from './src/components/common/AppSplash';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import * as WebBrowser from 'expo-web-browser';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
 import * as Font from 'expo-font';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFlipper } from '@react-navigation/devtools';
+import { createStackNavigator } from '@react-navigation/stack';
 
-// Firebase initialization
-import { auth } from './src/utils/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+// Supabase initialization - Ensure this is imported properly
+import { supabase } from './src/lib/supabase';
 
-import AuthContext from './src/context/AuthContext';
+// Import AuthProvider instead of AuthContext
+import { AuthProvider, useAuth } from './src/context/AuthProvider';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import MainNavigator from './src/navigation/MainNavigator';
 import { theme } from './src/theme';
-import AdminNavigator from './src/navigation/AdminNavigator';
+import * as NavigationBar from 'expo-navigation-bar';
+import { SubscriptionProvider } from './src/context/SubscriptionProvider';
 
 // Suppress warnings
 LogBox.ignoreLogs([
   'Reanimated 2',
-  'new NativeEventEmitter() was called with a non-null argument without the required removeListeners method',
-  'new NativeEventEmitter() was called with a non-null argument without the required addListener method',
+  'WebChannelConnection RPC',
+  '[expo-av]',
 ]);
-
-// Prevent splash auto-hide
-try {
-  preventAutoHideAsync();
-} catch (e) {
-  console.warn('Error preventing splash screen from hiding:', e);
-}
 
 // Complete any pending OAuth sessions
 WebBrowser.maybeCompleteAuthSession();
@@ -53,171 +50,214 @@ const getExpoConfig = () => {
   return Constants.manifest;
 };
 
-const App = () => {
-  const isWeb = Platform.OS === 'web';
-  const [isAppReady, setIsAppReady] = useState(isWeb);
-  const [userToken, setUserToken] = useState(null);
-  const [showSplash, setShowSplash] = useState(!isWeb);
-  const [loadError, setLoadError] = useState(null);
-  const splashOpacity = useRef(new Animated.Value(1)).current;
-
-  // Log current Expo config for debugging
-  useEffect(() => {
-    const expoConfig = getExpoConfig();
-    console.log('Expo Config Extra Keys:', Object.keys(expoConfig?.extra || {}));
-  }, []);
-
-  // Preload assets with retry mechanism
-  useEffect(() => {
-    if (isWeb) return;
-    const loadAssets = async () => {
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      while (retryCount < maxRetries) {
-        try {
-          console.log('Attempting to load assets, try #', retryCount + 1);
-          
-          // Use a Promise.all to load multiple assets if needed
-          await Promise.all([
-            Asset.loadAsync(require('./assets/logo_main.png')),
-            // Load icon fonts
-            Font.loadAsync({
-              ...Ionicons.font,
-              'Ionicons': require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'),
-              ...MaterialCommunityIcons.font,
-              'MaterialCommunityIcons': require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf'),
-            }),
-            // Add other assets here if needed
-          ]);
-          
-          console.log('Assets loaded successfully');
-          setIsAppReady(true);
-          return; // Exit on success
-        } catch (error) {
-          console.error('Error loading assets (attempt ' + (retryCount + 1) + '):', error);
-          retryCount++;
-          
-          if (retryCount >= maxRetries) {
-            console.error('Maximum asset loading retries reached');
-            setLoadError('Failed to load application assets. Please check your connection and try again.');
-            setIsAppReady(true); // Still set app as ready so we can show the error
-          }
-          
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    };
-    
-    loadAssets();
-    
-    // Safety timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (!isAppReady) {
-        console.log('Asset loading safety timeout triggered');
-        setIsAppReady(true);
-      }
-    }, 10000); // Extended to 10 seconds for slower connections
-    
-    return () => clearTimeout(timeout);
-  }, [isWeb]);
-
-  // Monitor Firebase auth state changes
-  useEffect(() => {
-    if (isWeb) {
-      // Skip Firebase auth on web for now
-      return;
+// Function to cache images
+const cacheImages = async (images) => {
+  return images.map(image => {
+    if (typeof image === 'string') {
+      return Image.prefetch(image);
+    } else {
+      return Asset.fromModule(image).downloadAsync();
     }
+  });
+};
+
+// Function to load fonts
+const cacheFonts = async (fonts) => {
+  return fonts.map(font => Font.loadAsync(font));
+};
+
+const Stack = createStackNavigator();
+
+const App = () => {
+  // Prevent splash screen from auto-hiding
+  SplashScreen.preventAutoHideAsync();
+  const [isReady, setIsReady] = useState(false);
+  const isWeb = Platform.OS === 'web';
+  const [userToken, setUserToken] = useState(null);
+  const navigationRef = useRef();
+  
+  // Handle deep linking
+  const handleDeepLink = useCallback((url) => {
+    if (!url) return;
     
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Firebase auth state changed:', user ? `User: ${user.email}` : 'No user');
-      if (user) {
-        const token = user.uid;
-        await AsyncStorage.setItem('userToken', token);
-        setUserToken(token);
-      } else {
-        // Check for stored token as fallback
-        try {
-          const token = await AsyncStorage.getItem('userToken');
-          setUserToken(token);
-        } catch (error) {
-          console.error('Error loading user token:', error);
-        }
+    console.log('Deep link URL:', url);
+    
+    // Parse URL
+    const parsedUrl = new URL(url);
+    const pathSegments = parsedUrl.pathname?.split('/') || [];
+    
+    // Handle payment callback
+    if (parsedUrl.host === 'payment-callback') {
+      const transactionId = parsedUrl.searchParams.get('transaction_id');
+      const status = parsedUrl.searchParams.get('status');
+      
+      console.log('Payment callback:', { transactionId, status });
+      
+      // Navigate to payment status screen
+      if (navigationRef.current && transactionId) {
+        navigationRef.current.navigate('PaymentStatus', { 
+          transactionId,
+          status
+        });
+      }
+    }
+  }, [navigationRef]);
+  
+  // Set up deep link handler on component mount
+  useEffect(() => {
+    // Handle incoming links when app is already open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+    
+    // Handle case where app is opened from a deep link
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        handleDeepLink(url);
       }
     });
+    
+    return () => {
+      subscription.remove();
+    };
+  }, [handleDeepLink]);
 
-    return () => unsubscribe();
-  }, [isWeb]);
-
-  // Splash fade-out handler
-  const handlePlaybackStatus = (status) => {
-    if (status.didJustFinish) {
-      Animated.timing(splashOpacity, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => setShowSplash(false));
+  // Set navigation bar color to black
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('black');
+      NavigationBar.setButtonStyleAsync('light');
+      NavigationBar.setBorderColorAsync('black');
     }
-  };
+  }, []);
 
-  const handleSignOut = async () => {
+  // Prepare resources and hide splash screen when ready
+  useEffect(() => {
+    async function prepare() {
+      try {
+        // Cache splash image
+        await Asset.fromModule(require('./assets/mainlogoo.png')).downloadAsync();
+        // Load fonts
+        await Font.loadAsync({
+          // Load any custom fonts here
+        });
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setIsReady(true);
+        await SplashScreen.hideAsync();
+      }
+    }
+    prepare();
+  }, []);
+
+  // Monitor Supabase auth state changes
+  useEffect(() => {
     try {
-      await signOut(auth);
-      await AsyncStorage.removeItem('userToken');
-      setUserToken(null);
+      // Safe access to Supabase auth
+      if (!supabase || !supabase.auth) {
+        console.warn('Supabase client not properly initialized');
+        return () => {};
+      }
+      
+      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        try {
+          if (session?.user) {
+            const token = session.user.id;
+            await AsyncStorage.setItem('userToken', token);
+            setUserToken(token);
+          } else {
+            const token = await AsyncStorage.getItem('userToken');
+            setUserToken(token);
+          }
+        } catch (error) {
+          console.error('Error in auth state change handler:', error);
+        }
+      });
+      
+      return () => {
+        if (data?.subscription) {
+          data.subscription.unsubscribe();
+        }
+      };
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Failed to set up auth state change listener:', error);
+      return () => {};
     }
-  };
+  }, []);
 
-  if (!isAppReady) return null;
-  
-  // Show error message if assets failed to load
-  if (loadError) {
+  // Don't render app until splash is hidden
+  if (!isReady) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{loadError}</Text>
-        <Text style={styles.errorSubText}>Please restart the application.</Text>
+      <View style={styles.splashOverlay}>
+        <Image
+          source={require('./assets/mainlogoo.png')}
+          style={styles.splashImage}
+        />
       </View>
     );
   }
 
+  const linking = {
+    prefixes: ['com.bigshow.app://', 'https://bigshow.com', 'bigshow://'],
+    config: {
+      screens: {
+        PaymentStatus: {
+          path: 'payment-callback',
+          parse: {
+            transactionId: (transactionId) => transactionId,
+            status: (status) => status
+          }
+        }
+      }
+    }
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        signIn: async (token) => { await AsyncStorage.setItem('userToken', token); setUserToken(token); },
-        signOut: handleSignOut,
-        signUp: async (token) => { await AsyncStorage.setItem('userToken', token); setUserToken(token); },
-      }}
-    >
-      <ErrorBoundary>
-        <SafeAreaProvider>
-          <ElementsThemeProvider theme={theme}>
-            <StatusBar translucent={false} barStyle="light-content" backgroundColor={theme.colors.primary} />
-            <NavigationContainer>
-              {showSplash && (
-                <View style={StyleSheet.absoluteFill}>
-                  <AppSplash onPlaybackStatusUpdate={handlePlaybackStatus} />
-                </View>
-              )}
-              {Platform.OS === 'web' ? (
-                <AdminNavigator />
-              ) : userToken ? (
-                <MainNavigator />
-              ) : (
-                <AuthNavigator />
-              )}
-            </NavigationContainer>
-          </ElementsThemeProvider>
-        </SafeAreaProvider>
-      </ErrorBoundary>
-    </AuthContext.Provider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ElementsThemeProvider theme={theme}>
+          <StatusBar translucent={false} barStyle="light-content" backgroundColor={theme.colors.primary} />
+          <AuthProvider>
+            <SubscriptionProvider>
+              <NavigationContainer 
+                ref={navigationRef}
+                linking={linking}
+              >
+                <AppNavigator />
+              </NavigationContainer>
+            </SubscriptionProvider>
+          </AuthProvider>
+        </ElementsThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 };
 
+// Main app navigator that handles auth state
+function AppNavigator() {
+  const { user, session, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!session ? (
+        // Auth screens
+        <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : (
+        // Main app screens with subscription check
+        <Stack.Screen name="Main" component={MainNavigator} />
+      )}
+    </Stack.Navigator>
+  );
+}
+
 const styles = StyleSheet.create({
   splashOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
+  splashImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#000' },
   errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 20 },
   errorSubText: { color: '#BBBBBB', fontSize: 14, textAlign: 'center' },

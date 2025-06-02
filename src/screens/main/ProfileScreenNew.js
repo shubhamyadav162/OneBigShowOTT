@@ -6,8 +6,10 @@ import theme from '../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import AuthContext from '../../context/AuthContext';
+import { supabase } from '../../lib/supabaseClient';
 
 const ProfileScreen = ({ navigation }) => {
+  const [profile, setProfile] = useState({ full_name: '', avatar_url: '', phone: '' });
   const defaultAvatar = 'https://source.unsplash.com/random/200x200?face';
   const [avatarUri, setAvatarUri] = useState(defaultAvatar);
   const { signOut } = useContext(AuthContext);
@@ -23,6 +25,30 @@ const ProfileScreen = ({ navigation }) => {
     })();
   }, []);
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) {
+        console.error('Error fetching user:', userErr);
+        return;
+      }
+      const { data: profileData, error: profileErr } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url, phone')
+        .eq('user_id', userData.user.id)
+        .single();
+      if (profileErr) {
+        console.error('Error fetching profile:', profileErr.message);
+        return;
+      }
+      setProfile(profileData);
+      if (profileData.avatar_url) {
+        setAvatarUri(profileData.avatar_url);
+      }
+    };
+    fetchProfile();
+  }, []);
+
   const handleSelectImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -36,7 +62,7 @@ const ProfileScreen = ({ navigation }) => {
         aspect: [1, 1],
         quality: 1,
       });
-      if (result.cancelled === false) {
+      if (result.canceled === false) {
         // handle both new and old response shapes
         const uri = result.assets?.[0]?.uri ?? result.uri;
         if (uri) {
@@ -65,7 +91,8 @@ const ProfileScreen = ({ navigation }) => {
               <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
             </View>
           </TouchableOpacity>
-          <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.name}>{profile.full_name || user.name}</Text>
+          {profile.phone ? <Text style={styles.phone}>{profile.phone}</Text> : null}
         </View>
 
         <TouchableOpacity style={styles.settingItem} onPress={() => handleNavigate('EditProfile')}>
@@ -117,6 +144,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  phone: {
+    color: theme.colors.text,
+    fontSize: theme.typography.fontSize.regular,
+    marginTop: theme.spacing.small,
   },
   scrollContent: {
     padding: theme.spacing.large,

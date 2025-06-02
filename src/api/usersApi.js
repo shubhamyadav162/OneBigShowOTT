@@ -1,24 +1,15 @@
-import { db } from '../utils/firebase';
-import { collection, doc, setDoc, serverTimestamp, onSnapshot, getDocs } from 'firebase/firestore';
+import { supabase } from '../lib/supabaseClient';
 
 const usersApi = {
   /**
-   * Create or update a user profile in Firestore
+   * Create or update a user profile in Supabase
    * @param {object} user - User data (uid, email, name, optional role, status)
    */
-  createUserProfile: async ({ uid, email, name, role = 'Viewer', status = 'Active' }) => {
-    try {
-      await setDoc(doc(db, 'users', uid), {
-        uid,
-        email,
-        name,
-        role,
-        status,
-        createdAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('usersApi.createUserProfile error', error);
-    }
+  createUserProfile: async ({ uid, email, name }) => {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert([{ user_id: uid, full_name: name }]);
+    if (error) console.error('usersApi.createUserProfile error', error.message);
   },
 
   /**
@@ -27,18 +18,16 @@ const usersApi = {
    * @returns {function} unsubscribe
    */
   subscribeToUsers: (callback) => {
-    const q = collection(db, 'users');
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        callback(users);
-      },
-      (error) => {
-        console.error('usersApi.subscribeToUsers error', error);
-      }
-    );
-    return unsubscribe;
+    // Initial fetch
+    usersApi.getUsers().then(callback);
+    // Real-time subscription
+    const channel = supabase
+      .channel('public:profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        usersApi.getUsers().then(callback);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   },
 
   /**
@@ -46,13 +35,14 @@ const usersApi = {
    * @returns {Promise<Array>} Array of user profiles
    */
   getUsers: async () => {
-    try {
-      const snap = await getDocs(collection(db, 'users'));
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-      console.error('usersApi.getUsers error', error);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*');
+    if (error) {
+      console.error('usersApi.getUsers error', error.message);
       return [];
     }
+    return data;
   },
 };
 

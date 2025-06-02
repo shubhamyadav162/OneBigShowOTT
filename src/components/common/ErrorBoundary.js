@@ -43,8 +43,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Check if error is related to assets loading
       const isAssetError = this.state.error?.message?.includes('asset') || 
-                         this.state.error?.message?.includes('resource') ||
-                         this.state.errorInfo?.componentStack?.includes('AppSplash');
+                         this.state.error?.message?.includes('resource');
       
       const errorMessage = isAssetError 
         ? "Failed to load app resources. This might be due to a connection issue or corrupted app cache."

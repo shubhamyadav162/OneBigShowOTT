@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 const WebSeriesDetailScreen = ({ route, navigation }) => {
   const series = route.params.series ?? route.params;
   // Use the provided universal video URL for playback
-  const videoSource = 'https://shorturl.at/WP2Vj';
+  const videoSource = 'https://ottbigshow.b-cdn.net/From%20the%20World%20of%20John%20Wick%EF%BC%9A%20Ballerina%20(2025)%20Final%20Trailer%20%E2%80%93%20Ana%20de%20Armas%2C%20Keanu%20Reeves%20(1).mp4';
   return (
     <ImageBackground source={series.source} style={styles.backgroundImage} blurRadius={2}>
       <View style={styles.overlay} />

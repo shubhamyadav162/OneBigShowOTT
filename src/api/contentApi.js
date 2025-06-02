@@ -1,16 +1,7 @@
-import { db } from '../lib/firebaseClient';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  limit as limitFn,
-} from 'firebase/firestore';
+import { supabase } from '../lib/supabaseClient';
 
 /**
- * Content API service using Firestore
+ * Content API service using Supabase
  */
 const contentApi = {
   /**
@@ -18,13 +9,12 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getFeaturedContent: async () => {
-    try {
-      const snap = await getDocs(query(collection(db, 'series'), limitFn(10)));
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('*')
+      .limit(10);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -32,7 +22,6 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getRecommendedContent: async () => {
-    // For now, return featured content
     return contentApi.getFeaturedContent();
   },
 
@@ -41,7 +30,6 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getTrendingContent: async () => {
-    // For now, return featured content
     return contentApi.getFeaturedContent();
   },
 
@@ -53,19 +41,13 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getContentByCategory: async (categoryId, page = 1, limit = 20) => {
-    try {
-      const snap = await getDocs(
-        query(
-          collection(db, 'series'),
-          where('genre', '==', categoryId),
-          limitFn(limit)
-        )
-      );
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('*')
+      .eq('genre', categoryId)
+      .range((page - 1) * limit, page * limit - 1);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -73,15 +55,13 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getCategories: async () => {
-    try {
-      const snap = await getDocs(collection(db, 'series'));
-      const genres = Array.from(
-        new Set(snap.docs.map(d => d.data().genre))
-      );
-      return { success: true, data: genres };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('genre')
+      .neq('genre', null);
+    if (error) return { success: false, error: error.message };
+    const genres = Array.from(new Set(data.map(item => item.genre)));
+    return { success: true, data: genres };
   },
 
   /**
@@ -90,18 +70,14 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   searchContent: async (queryStr) => {
-    try {
-      const snap = await getDocs(collection(db, 'series'));
-      const data = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(item =>
-          item.title.toLowerCase().includes(queryStr.toLowerCase()) ||
-          item.description.toLowerCase().includes(queryStr.toLowerCase())
-        );
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('*')
+      .or(
+        `title.ilike.%${queryStr}%,description.ilike.%${queryStr}%`
+      );
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -110,15 +86,13 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getContentDetails: async (contentId) => {
-    try {
-      const docSnap = await getDoc(doc(db, 'series', contentId));
-      if (!docSnap.exists()) {
-        return { success: false, error: 'Content not found' };
-      }
-      return { success: true, data: { id: docSnap.id, ...docSnap.data() } };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('*')
+      .eq('id', contentId)
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -127,13 +101,12 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getEpisodes: async (seriesId) => {
-    try {
-      const snap = await getDocs(collection(db, 'series', seriesId, 'episodes'));
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_episodes')
+      .select('*')
+      .eq('series_id', seriesId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -143,15 +116,14 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getEpisodeDetails: async (seriesId, episodeId) => {
-    try {
-      const docSnap = await getDoc(doc(db, 'series', seriesId, 'episodes', episodeId));
-      if (!docSnap.exists()) {
-        return { success: false, error: 'Episode not found' };
-      }
-      return { success: true, data: { id: docSnap.id, ...docSnap.data() } };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase
+      .from('content_episodes')
+      .select('*')
+      .eq('series_id', seriesId)
+      .eq('id', episodeId)
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -161,26 +133,24 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getSimilarContent: async (contentId, limit = 10) => {
-    try {
-      const mainSnap = await getDoc(doc(db, 'series', contentId));
-      if (!mainSnap.exists()) {
-        return { success: false, error: 'Content not found' };
-      }
-      const genre = mainSnap.data().genre;
-      const snap = await getDocs(
-        query(
-          collection(db, 'series'),
-          where('genre', '==', genre),
-          limitFn(limit)
-        )
-      );
-      const data = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(item => item.id !== contentId);
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const {
+      data: main,
+      error: mainError,
+    } = await supabase
+      .from('content_series')
+      .select('genre')
+      .eq('id', contentId)
+      .single();
+    if (mainError || !main) return { success: false, error: mainError?.message || 'Content not found' };
+    const genre = main.genre;
+    const { data, error } = await supabase
+      .from('content_series')
+      .select('*')
+      .eq('genre', genre)
+      .neq('id', contentId)
+      .limit(limit);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   },
 
   /**
@@ -188,7 +158,6 @@ const contentApi = {
    * @returns {Promise} - API response
    */
   getCastCrew: async () => {
-    // Cast and crew not implemented in Firestore
     return { success: true, data: [] };
   },
 };

@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, StyleSheet, Text, Image } from 'react-native';
+import { View, StyleSheet, Text, Image, TouchableOpacity, Alert } from 'react-native';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Icon, IconNames } from '../components/common/Icons';
+import TabBarIcon from '../components/common/TabBarIcon';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 // Import screens
 import HomeScreen from '../screens/main/HomeScreen';
@@ -24,6 +28,7 @@ import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import SubscriptionScreen from '../screens/profile/SubscriptionScreen';
 import PaymentMethodScreen from '../screens/profile/PaymentMethodScreen';
 import PaymentHistoryScreen from '../screens/profile/PaymentHistoryScreen';
+import PaymentStatusScreen from '../screens/profile/PaymentStatusScreen';
 import ManageDevicesScreen from '../screens/profile/ManageDevicesScreen';
 import WatchlistScreen from '../screens/profile/WatchlistScreen';
 import NotificationScreen from '../screens/profile/NotificationScreen';
@@ -31,16 +36,27 @@ import HelpCenterScreen from '../screens/profile/HelpCenterScreen';
 import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
 import RefundPolicyScreen from '../screens/profile/RefundPolicyScreen';
 import TermsAndConditionsScreen from '../screens/profile/TermsAndConditionsScreen';
+import SettingsScreen from '../screens/admin/SettingsScreen';
+import ManageSubscriptionScreen from '../screens/profile/ManageSubscriptionScreen';
+
+// Import admin screens
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminSubscriptionsScreen from '../screens/admin/AdminSubscriptionsScreen';
 
 // Import theme
 import theme from '../theme';
-import AdminNavigator from './AdminNavigator';
+
+// Auth context
+import { useAuth } from '../context/AuthProvider';
+import { useSubscription } from '../context/SubscriptionProvider';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // Home Stack
 const HomeStack = () => {
+  const { isSubscribed, isRouteAccessible } = useSubscription();
+  
   return (
     <Stack.Navigator
       screenOptions={{
@@ -49,11 +65,68 @@ const HomeStack = () => {
       }}
     >
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="ContentDetails" component={ContentDetailsScreen} />
+      <Stack.Screen 
+        name="ContentDetails" 
+        component={ContentDetailsScreen} 
+        options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          beforeRemove: (e) => {
+            // Allow navigation if user is subscribed or the route is accessible
+            if (isSubscribed || isRouteAccessible('ContentDetailsScreen')) {
+              return;
+            }
+            
+            // Prevent default behavior
+            e.preventDefault();
+            
+            // Prompt the user to subscribe
+            Alert.alert(
+              'सब्सक्रिप्शन आवश्यक है',
+              'इस सामग्री को देखने के लिए एक सक्रिय सदस्यता की आवश्यकता है। क्या आप सदस्यता योजनाओं को देखना चाहेंगे?',
+              [
+                { 
+                  text: 'नहीं', 
+                  style: 'cancel',
+                  onPress: () => navigation.navigate('HomeMain')
+                },
+                { 
+                  text: 'हां', 
+                  onPress: () => navigation.navigate('ProfileStack', { screen: 'Subscription' })
+                }
+              ]
+            );
+          }
+        })}
+      />
       <Stack.Screen 
         name="VideoPlayer" 
-        component={VideoPlayerScreen} 
+        component={VideoPlayerScreen}
         options={{ headerShown: false, gestureEnabled: false }}
+        listeners={({ navigation }) => ({
+          beforeRemove: (e) => {
+            if (isSubscribed || isRouteAccessible('VideoPlayerScreen')) {
+              return;
+            }
+            
+            e.preventDefault();
+            
+            Alert.alert(
+              'सब्सक्रिप्शन आवश्यक है',
+              'इस वीडियो को देखने के लिए एक सक्रिय सदस्यता की आवश्यकता है। क्या आप सदस्यता योजनाओं को देखना चाहेंगे?',
+              [
+                { 
+                  text: 'नहीं', 
+                  style: 'cancel',
+                  onPress: () => navigation.navigate('HomeMain')
+                },
+                { 
+                  text: 'हां', 
+                  onPress: () => navigation.navigate('ProfileStack', { screen: 'Subscription' })
+                }
+              ]
+            );
+          }
+        })}
       />
       <Stack.Screen name="Episodes" component={EpisodesScreen} />
       <Stack.Screen name="CastCrew" component={CastCrewScreen} />
@@ -111,6 +184,7 @@ const ProfileStack = () => {
       <Stack.Screen name="Subscription" component={SubscriptionScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
       <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
+      <Stack.Screen name="PaymentStatus" component={PaymentStatusScreen} />
       <Stack.Screen name="ManageDevices" component={ManageDevicesScreen} />
       <Stack.Screen name="Watchlist" component={WatchlistScreen} />
       <Stack.Screen name="Notifications" component={NotificationScreen} />
@@ -118,6 +192,12 @@ const ProfileStack = () => {
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
       <Stack.Screen name="TermsConditions" component={TermsAndConditionsScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ManageSubscription" component={ManageSubscriptionScreen} />
+      
+      {/* Admin Screens */}
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsScreen} />
     </Stack.Navigator>
   );
 };
@@ -129,6 +209,35 @@ const getTabBarVisibility = (route) => {
 };
 
 const MainNavigator = () => {
+  const insets = useSafeAreaInsets();
+  const { isSubscribed } = useSubscription();
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      const checkAdminStatus = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single();
+            
+          if (!error && data && data.role === 'admin') {
+            setIsAdmin(true);
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+        }
+      };
+      
+      checkAdminStatus();
+    }
+  }, [user]);
+
+  // Adjust tab bar height and padding for bottom safe area
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -141,29 +250,34 @@ const MainNavigator = () => {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.background,
           paddingTop: 5,
-          height: 60,
+          paddingBottom: insets.bottom,
+          height: 60 + insets.bottom,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -1 },
+          shadowOpacity: 0.3,
+          shadowRadius: 3,
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
+          let label = '';
+          
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+            label = 'Home';
           } else if (route.name === 'Upcoming') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+            label = 'Upcoming';
           } else if (route.name === 'WebSeries') {
             iconName = focused ? 'tv' : 'tv-outline';
+            label = 'Series';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Admin') {
-            iconName = focused ? 'settings' : 'settings-outline';
+            label = 'Profile';
           }
-          return (
-            <View style={styles.iconContainer}>
-              <Icon name={iconName} size={size} color={color} />
-              <Text style={[styles.iconText, focused && styles.focusedText]}>
-                {route.name}
-              </Text>
-            </View>
-          );
+          
+          return <TabBarIcon focused={focused} iconName={iconName} label={label} />;
         },
       })}
     >
@@ -171,7 +285,30 @@ const MainNavigator = () => {
       <Tab.Screen name="Upcoming" component={UpcomingStack} />
       <Tab.Screen name="WebSeries" component={WebSeriesStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
-      <Tab.Screen name="Admin" component={AdminNavigator} />
+      
+      {isAdmin && (
+        <Tab.Screen
+          name="AdminTab"
+          component={ProfileStack}
+          initialParams={{ screen: 'AdminDashboard' }}
+          options={{
+            tabBarLabel: 'एडमिन',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="shield-account" color={color} size={size} />
+            ),
+          }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              // Prevent default action
+              e.preventDefault();
+              // Navigate to the admin dashboard
+              navigation.navigate('Profile', {
+                screen: 'AdminDashboard',
+              });
+            },
+          })}
+        />
+      )}
     </Tab.Navigator>
   );
 };

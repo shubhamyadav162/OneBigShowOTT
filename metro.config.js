@@ -1,37 +1,42 @@
+// Learn more https://docs.expo.dev/guides/customizing-metro
 const { getDefaultConfig } = require('@expo/metro-config');
-const path = require('path');
-// Import exclusionList helper to build blockList patterns
 const exclusionList = require('metro-config/src/defaults/exclusionList');
+const path = require('path');
 
-const projectRoot = __dirname;
-// Generate default Expo Metro config
-const config = getDefaultConfig(projectRoot);
+/** @type {import('expo/metro-config').MetroConfig} */
+const config = getDefaultConfig(__dirname);
 
-// Add support for cjs and mjs extensions to resolve Firebase modules
-config.resolver.sourceExts.push('cjs', 'mjs');
-
-// Exclude large or irrelevant directories to prevent I/O errors and unnecessary scanning
+// Exclude nested OneBigShowOTT directory and ws module to avoid duplicate module errors and Node-specific ws files
 config.resolver.blockList = exclusionList([
-  /supabase-mcp-server[\/\\].*/,        // Supabase server code
-  /firebase-mcp-main[\/\\].*/,          // Firebase MCP server code
-  /tmp_build_dir[\/\\].*/,              // Temporary build directory
-  /functions[\/\\].*/,                  // Cloud functions folder
-  /\.expo[\/\\].*/,                   // Expo cache directory
+  /OneBigShowOTT[\/\\]OneBigShowOTT[\/\\].*/,
+  /node_modules[\/\\]ws[\/\\].*/,
 ]);
-config.maxWorkers = 4;
-config.watchFolders = [projectRoot];
-config.reporter = {
-  update: () => {},
+
+// Add support for all file extensions supported by Expo
+config.resolver.sourceExts = [
+  'js', 'jsx', 'ts', 'tsx', 'cjs', 'mjs', 'json',
+  ...config.resolver.sourceExts,
+];
+
+// Add support for all asset extensions supported by Expo
+config.resolver.assetExts = [
+  'ttf', 'otf', 'png', 'jpg', 'jpeg', 'gif', 'webp',
+  'mp4', 'mp3', 'wav', 'ogg', 'webm',
+  ...config.resolver.assetExts,
+];
+
+// Allow transforming TypeScript in node_modules, including react-native-rapi-ui
+config.transformer.nodeModulesTransform = {
+  type: 'all',
 };
 
-// Add support for vector icons
-config.resolver.assetExts.push('ttf', 'otf');
-config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs'];
+// Stub out ws and stream modules to avoid bundling Node-specific implementation
+config.resolver.extraNodeModules = {
+  ws: path.resolve(__dirname, 'ws-empty.js'),
+  stream: path.resolve(__dirname, 'ws-empty.js'),
+};
 
-// Add essential configurations for web
-if (process.env.PLATFORM_NAME === 'web') {
-  config.resolver.sourceExts.push('web.js', 'web.ts', 'web.tsx');
-  config.resolver.assetExts.push('svg', 'png', 'jpg', 'woff', 'woff2');
-}
+// Use the default React Native and browser-first resolution order
+config.resolver.mainFields = ['react-native', 'browser', 'main'];
 
 module.exports = config; 

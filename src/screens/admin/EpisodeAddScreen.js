@@ -29,7 +29,7 @@ const EpisodeAddScreen = () => {
       Alert.alert('Permission required', 'Camera roll permission is required to select thumbnail.');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.Images, allowsEditing: true, quality: 0.8 });
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       const list = [...episodes];

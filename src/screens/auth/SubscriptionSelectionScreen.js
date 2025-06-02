@@ -44,7 +44,7 @@ const SubscriptionSelectionScreen = ({ navigation }) => {
             <TouchableOpacity
               key={plan.id}
               style={[styles.planCard, isSelected && styles.planCardSelected]}
-              onPress={() => setSelectedPlan(plan.id)}
+              onPress={() => navigation.navigate('Payment', { plan: plan.id, period })}
             >
               <Text style={styles.planName}>{plan.name}</Text>
               <Text style={styles.planPrice}>{period === 'monthly' ? plan.priceMonthly : plan.priceAnnual}</Text>
@@ -55,16 +55,6 @@ const SubscriptionSelectionScreen = ({ navigation }) => {
           );
         })}
       </ScrollView>
-      <TouchableOpacity style={styles.continueButton} onPress={handleContinue} disabled={!selectedPlan}>
-        <LinearGradient
-          colors={[theme.colors.primary, theme.colors.highlight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientButton}
-        >
-          <Text style={styles.continueText}>Continue</Text>
-        </LinearGradient>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -139,20 +129,6 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.medium,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.tiny,
-  },
-  continueButton: {
-    marginTop: 'auto',
-    marginBottom: theme.spacing.large,
-  },
-  gradientButton: {
-    paddingVertical: theme.spacing.medium,
-    borderRadius: theme.borderRadius.medium,
-    alignItems: 'center',
-  },
-  continueText: {
-    fontSize: theme.typography.fontSize.large,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.background,
   },
 });
 

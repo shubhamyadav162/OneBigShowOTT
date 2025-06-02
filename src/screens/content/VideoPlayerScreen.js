@@ -11,6 +11,7 @@ import {
   Platform,
   PanResponder,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { Video } from 'expo-av';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,11 +19,11 @@ import { MaterialIcons as Icon } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Brightness from 'expo-brightness';
 import Slider from '@react-native-community/slider';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Import API services
 import contentApi from '../../api/contentApi';
 import analyticsApi from '../../api/analyticsApi';
-import { auth } from '../../lib/firebaseClient';
 
 // Import theme
 import theme from '../../theme';
@@ -58,18 +59,53 @@ const VideoPlayerScreen = () => {
   const [showBrightnessOverlay, setShowBrightnessOverlay] = useState(false);
   const [showVolumeOverlay, setShowVolumeOverlay] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(true);
+  
+  useEffect(() => {
+    StatusBar.setHidden(isFullScreen, 'fade');
+    if (Platform.OS === 'android') {
+      // navigation bar को काली रंग में सेट करें और immersive मोड में छिपाएं/दिखाएं
+      NavigationBar.setBackgroundColorAsync('#000000');
+      NavigationBar.setBehaviorAsync('immersive');
+      NavigationBar.setVisibilityAsync(isFullScreen ? 'hidden' : 'visible');
+    }
+  }, [isFullScreen]);
+  
   const overlayTimeoutRef = useRef(null);
   const startBrightnessRef = useRef(internalBrightness);
   const startVolumeRef = useRef(internalVolume);
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
+  
   // Overlay height for brightness/volume
   const OVERLAY_HEIGHT = 200;
   
+  // Aspect ratio control state
+  const [resizeModeState, setResizeModeState] = useState('contain');
+  const [showAspectOverlay, setShowAspectOverlay] = useState(false);
+  const aspectTimeoutRef = useRef(null);
+  const aspectModeNames = {
+    cover: 'Fill',
+    contain: 'Best Fit',
+    stretch: 'Stretch',
+  };
+  const cycleAspect = () => {
+    let next;
+    if (resizeModeState === 'cover') next = 'contain';
+    else if (resizeModeState === 'contain') next = 'stretch';
+    else next = 'cover';
+    setResizeModeState(next);
+    setShowAspectOverlay(true);
+    if (aspectTimeoutRef.current) clearTimeout(aspectTimeoutRef.current);
+    aspectTimeoutRef.current = setTimeout(() => setShowAspectOverlay(false), 1000);
+  };
+  
   // Gesture handler for taps (to toggle controls) and vertical swipes (brightness/volume)
   const panResponder = PanResponder.create({
-    // Only activate gestures when controls are hidden
-    onStartShouldSetPanResponder: () => !showControls,
+    // Don't capture start taps; detect only vertical swipes when controls are hidden
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_evt, gestureState) => {
+      const { dx, dy } = gestureState;
+      return !showControls && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx);
+    },
     onPanResponderGrant: (evt, gestureState) => {
       // Record start positions and brightness/volume
       startXRef.current = gestureState.x0;
@@ -103,17 +139,14 @@ const VideoPlayerScreen = () => {
         if (videoRef.current) videoRef.current.setVolumeAsync(newVolume);
       }
     },
-    onPanResponderRelease: (evt, gestureState) => {
-      const dx = gestureState.moveX - startXRef.current;
-      const dy = gestureState.moveY - startYRef.current;
-      // Small tap toggles controls
-      if (Math.hypot(dx, dy) < 10) handleVideoPress();
+    onPanResponderRelease: () => {
       // Hide any overlays after delay
       overlayTimeoutRef.current = setTimeout(() => {
         setShowBrightnessOverlay(false);
         setShowVolumeOverlay(false);
       }, 1000);
     },
+    onPanResponderTerminationRequest: () => false,
   });
   
   // Load video details
@@ -126,18 +159,18 @@ const VideoPlayerScreen = () => {
         if (episodeId) {
           response = await contentApi.getEpisodeDetails(contentId, episodeId);
           if (response.success) {
-            setVideoUrl(response.data.videoUrl);
+            setVideoUrl(response.data.video_url);
             setVideoTitle(response.data.title);
-            analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
+            analyticsApi.logEvent('video_view', { userId: null, contentId: contentId, secondsWatched: 0 });
           }
         } 
         // Otherwise, fetch content details
         else {
           response = await contentApi.getContentDetails(contentId);
           if (response.success) {
-            setVideoUrl(response.data.videoUrl);
+            setVideoUrl(response.data.video_url);
             setVideoTitle(response.data.title);
-            analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
+            analyticsApi.logEvent('video_view', { userId: null, contentId: contentId, secondsWatched: 0 });
           }
         }
         
@@ -155,7 +188,7 @@ const VideoPlayerScreen = () => {
       setVideoUrl(source);
       setVideoTitle(title || '');
       setIsBuffering(false);
-      analyticsApi.logEvent('video_view', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: 0 });
+      analyticsApi.logEvent('video_view', { userId: null, contentId: contentId, secondsWatched: 0 });
     } else {
       loadVideoDetails();
     }
@@ -193,20 +226,22 @@ const VideoPlayerScreen = () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      // Clear aspect ratio overlay timeout
+      if (aspectTimeoutRef.current) {
+        clearTimeout(aspectTimeoutRef.current);
+      }
     };
   }, [contentId, episodeId, continueWatching, source, title]);
   
   // Handle press on video to show/hide controls
   const handleVideoPress = () => {
     if (isLocked) return;
-    setShowControls(!showControls);
-    
-    // Auto-hide controls after 5 seconds if showing
-    if (!showControls) {
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-      }
-      
+    const willShow = !showControls;
+    setShowControls(willShow);
+    // Clear any existing hide timeout
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    // Auto-hide controls after 5 seconds only when showing and video is playing
+    if (willShow && isPlaying) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
       }, 5000);
@@ -216,9 +251,26 @@ const VideoPlayerScreen = () => {
   // Handle play/pause
   const togglePlayPause = async () => {
     if (isPlaying) {
-      analyticsApi.logEvent('watch_time', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: currentTime });
+      analyticsApi.logEvent('watch_time', { userId: null, contentId: contentId, secondsWatched: currentTime });
     }
-    setIsPlaying(prev => !prev);
+    const newPlaying = !isPlaying;
+    setIsPlaying(newPlaying);
+    // Imperatively play or pause the video
+    if (videoRef.current) {
+      if (newPlaying) {
+        await videoRef.current.playAsync();
+      } else {
+        await videoRef.current.pauseAsync();
+      }
+    }
+    // Ensure controls are visible when toggling play/pause
+    setShowControls(true);
+    // Clear any existing hide timeout
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    // If playing, auto-hide controls after 5 seconds
+    if (newPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 5000);
+    }
   };
   
   // New functions: rewind 10s, fast-forward 10s, mute toggle, speed toggle
@@ -256,8 +308,13 @@ const VideoPlayerScreen = () => {
   
   // Handle seek
   const handleSeek = async (value) => {
+    // maintain paused state after seeking
+    const wasPlaying = isPlaying;
     if (videoRef.current) {
       await videoRef.current.setPositionAsync(value * 1000);
+      if (!wasPlaying) {
+        await videoRef.current.pauseAsync();
+      }
     }
     setCurrentTime(value);
   };
@@ -265,12 +322,29 @@ const VideoPlayerScreen = () => {
   // Handle video load
   const handleLoad = async (status) => {
     if (status.isLoaded) {
+      // वीडियो लोड होते ही full brightness और full volume सेट करें
+      Brightness.setBrightnessAsync(1).catch(() => {});
+      setInternalBrightness(1);
+      if (videoRef.current) {
+        await videoRef.current.setVolumeAsync(1);
+        await videoRef.current.setIsMutedAsync(false);
+      }
+      setInternalVolume(1);
+      setMuted(false);
+      
       setDuration(status.durationMillis / 1000);
       setIsBuffering(false);
-
       // Resume from continue-watching position
       if (continueWatching && continueWatching.position) {
         await videoRef.current.setPositionAsync(continueWatching.position * 1000);
+      }
+      // Imperatively start or pause playback
+      if (videoRef.current) {
+        if (isPlaying) {
+          await videoRef.current.playAsync();
+        } else {
+          await videoRef.current.pauseAsync();
+        }
       }
     } else if (status.error) {
       console.error('Video loading error:', status.error);
@@ -281,13 +355,12 @@ const VideoPlayerScreen = () => {
   // Handle playback status update
   const handlePlaybackStatusUpdate = (status) => {
     if (status.isLoaded) {
-      setIsPlaying(status.isPlaying);
       setCurrentTime(status.positionMillis / 1000);
       setIsBuffering(status.isBuffering);
       
       // Handle video end
       if (status.didJustFinish && !status.isLooping) {
-        analyticsApi.logEvent('video_complete', { userId: auth.currentUser?.uid, contentId: contentId, secondsWatched: Math.floor(status.durationMillis / 1000) });
+        analyticsApi.logEvent('video_complete', { userId: null, contentId: contentId, secondsWatched: Math.floor(status.durationMillis / 1000) });
         setTimeout(() => {
           navigation.goBack();
         }, 2000);
@@ -330,6 +403,22 @@ const VideoPlayerScreen = () => {
     });
   };
   
+  // Handle casting action (placeholder)
+  const handleCast = () => {
+    // TODO: integrate casting functionality
+    console.log('Cast button pressed');
+  };
+  
+  // Toggle full screen orientation
+  const toggleFullScreen = async () => {
+    if (isFullScreen) {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    } else {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    }
+    setIsFullScreen(!isFullScreen);
+  };
+  
   // Show error state
   if (videoError) {
     return (
@@ -353,22 +442,24 @@ const VideoPlayerScreen = () => {
   
   return (
     <View style={styles.container}>
-      <StatusBar hidden />
+      <StatusBar hidden={isFullScreen} backgroundColor="#000000" barStyle="light-content" translucent={false} />
       
       {/* Video Player */}
-      <View style={styles.videoContainer} {...panResponder.panHandlers}>
+      <View style={styles.videoContainer} {...(!showBrightnessOverlay && !showVolumeOverlay ? panResponder.panHandlers : {})}>
         <Video
           ref={videoRef}
           source={{ uri: videoUrl }}
           style={styles.video}
-          resizeMode="contain"
-          shouldPlay={isPlaying}
+          resizeMode={resizeModeState}
           rate={playbackRate}
           isMuted={muted}
           isLooping={isLooping}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           onLoad={handleLoad}
-          onError={({ error }) => setVideoError(`Failed to load video: ${error}`)}
+          onError={(errorEvent) => {
+            console.error('Video playback error:', errorEvent);
+            setVideoError('Failed to load video. Please try again.');
+          }}
           volume={internalVolume}
         />
         {/* Brightness dim overlay */}
@@ -394,6 +485,11 @@ const VideoPlayerScreen = () => {
                 let finalVal = value < 0.02 ? 0 : value > 0.98 ? 1 : parseFloat(value.toFixed(2));
                 setInternalBrightness(finalVal);
                 Brightness.setBrightnessAsync(finalVal).catch(() => {});
+                // Hide brightness overlay after delay
+                if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current);
+                overlayTimeoutRef.current = setTimeout(() => {
+                  setShowBrightnessOverlay(false);
+                }, 1000);
               }}
               minimumTrackTintColor="#FFF"
               maximumTrackTintColor="rgba(255,255,255,0.3)"
@@ -425,11 +521,24 @@ const VideoPlayerScreen = () => {
                 if (videoRef.current) {
                   videoRef.current.setVolumeAsync(finalVal);
                 }
+                // Hide volume overlay after delay
+                if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current);
+                overlayTimeoutRef.current = setTimeout(() => {
+                  setShowVolumeOverlay(false);
+                }, 1000);
               }}
               minimumTrackTintColor="#FFF"
               maximumTrackTintColor="rgba(255,255,255,0.3)"
               thumbTintColor="#FFF"
             />
+          </View>
+        )}
+        {/* Aspect ratio overlay */}
+        {showAspectOverlay && (
+          <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
+            <View style={{ backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+              <Text style={{ color: '#FFF', fontSize: 16 }}>{aspectModeNames[resizeModeState]}</Text>
+            </View>
           </View>
         )}
         {/* Buffering Indicator */}
@@ -445,6 +554,10 @@ const VideoPlayerScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+        {/* Transparent touch layer for taps when controls are hidden (skip when slider overlays are active) */}
+        {!showControls && !showBrightnessOverlay && !showVolumeOverlay && (
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleVideoPress} />
+        )}
         
         {/* Video Controls */}
         {showControls && (
@@ -458,7 +571,44 @@ const VideoPlayerScreen = () => {
                 <Text style={styles.videoTitle} numberOfLines={1}>
                   {videoTitle}
                 </Text>
-                <View style={styles.placeholder} />
+                <View style={styles.topIconsContainer}>
+                  <TouchableOpacity
+                    style={styles.castButton}
+                    onPress={() => {
+                      setShowBrightnessOverlay(true);
+                      setShowVolumeOverlay(false);
+                      if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current);
+                      overlayTimeoutRef.current = setTimeout(() => {
+                        setShowBrightnessOverlay(false);
+                      }, 1000);
+                    }}
+                  >
+                    <Icon name="brightness-medium" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.castButton}
+                    onPress={() => {
+                      setShowVolumeOverlay(true);
+                      setShowBrightnessOverlay(false);
+                      if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current);
+                      overlayTimeoutRef.current = setTimeout(() => {
+                        setShowVolumeOverlay(false);
+                      }, 1000);
+                    }}
+                  >
+                    <Icon
+                      name={
+                        internalVolume === 0
+                          ? 'volume-off'
+                          : internalVolume < 0.5
+                          ? 'volume-down'
+                          : 'volume-up'
+                      }
+                      size={24}
+                      color="#FFF"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
               
               {/* Center Controls: rewind, play/pause, fast-forward */}
@@ -481,36 +631,30 @@ const VideoPlayerScreen = () => {
                 </TouchableOpacity>
               </View>
               
-              {/* Extra Controls: Lock, Mute, Speed, Loop */}
-              <View style={styles.extraControls}>
-                <TouchableOpacity onPress={toggleLock} style={{ marginRight: 12 }}>
-                  <Icon name={isLocked ? 'lock' : 'lock-open'} size={24} color="#FFF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={toggleMute} style={{ marginRight: 12 }}>
-                  <Icon name={muted ? 'volume-off' : 'volume-up'} size={24} color="#FFF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={toggleSpeed} style={{ marginRight: 12 }}>
-                  <Text style={styles.speedText}>{playbackRate}x</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={toggleLoop}>
-                  <Icon name={isLooping ? 'repeat-one' : 'repeat'} size={24} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-              
               {/* Bottom Progress Bar */}
               <View style={styles.bottomBar}>
+                <TouchableOpacity onPress={toggleLock} style={styles.bottomButton}>
+                  <Icon name={isLocked ? 'lock' : 'lock-open'} size={24} color="#FFF" />
+                </TouchableOpacity>
                 <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
                 <Slider
                   style={styles.progressBar}
                   minimumValue={0}
                   maximumValue={duration}
                   value={currentTime}
-                  onValueChange={handleSeek}
-                  minimumTrackTintColor={theme.colors.primary}
+                  onValueChange={(value) => setCurrentTime(value)}
+                  onSlidingComplete={handleSeek}
+                  minimumTrackTintColor={theme.colors.success}
                   maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
-                  thumbTintColor={theme.colors.primary}
+                  thumbTintColor={theme.colors.success}
                 />
                 <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                <TouchableOpacity onPress={cycleAspect} style={styles.bottomButton}>
+                  <Icon name="aspect-ratio" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={toggleFullScreen} style={styles.bottomButton}>
+                  <Icon name={isFullScreen ? 'fullscreen-exit' : 'fullscreen'} size={24} color="#FFF" />
+                </TouchableOpacity>
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -533,6 +677,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: 150,
+    zIndex: 1000,
+    elevation: 1000,
   },
   verticalSlider: {
     width: 200,
@@ -570,8 +716,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 16,
   },
-  placeholder: {
-    width: 40,
+  topIconsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  castButton: {
+    padding: 8,
   },
   centerControls: {
     flexDirection: 'row',
@@ -579,10 +729,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playPauseButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#FFF',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -640,22 +792,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'black',
   },
-  extraControls: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  bottomButton: {
+    padding: 8,
   },
   unlockContainer: {
     position: 'absolute',
     top: 16,
     right: 16,
     zIndex: 10,
-  },
-  speedText: {
-    color: '#FFF',
-    fontSize: 16,
-    marginLeft: 12,
   },
 });
 

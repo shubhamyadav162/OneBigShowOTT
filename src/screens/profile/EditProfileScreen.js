@@ -47,12 +47,12 @@ const EditProfileScreen = () => {
       return Alert.alert('Permission required', 'Permission to access gallery is required!');
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-    if (!result.cancelled) {
+    if (!result.canceled) {
       const uri = result.assets ? result.assets[0].uri : result.uri;
       setAvatar(uri);
       await AsyncStorage.setItem('userAvatar', uri);

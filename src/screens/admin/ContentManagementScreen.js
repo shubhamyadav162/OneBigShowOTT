@@ -122,7 +122,7 @@ const ContentManagementScreen = () => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       quality: 0.8,
       aspect: [16, 9]
@@ -139,7 +139,7 @@ const ContentManagementScreen = () => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ImagePicker.MediaType.Videos,
       quality: 0.8,
     });
     if (!result.canceled) {

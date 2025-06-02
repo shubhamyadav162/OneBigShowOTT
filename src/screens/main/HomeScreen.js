@@ -9,33 +9,33 @@ const sections = [
     id: '1',
     title: 'Popular on BigShow',
     data: [
-      { id: '1', title: 'Mystery Manor', source: require('../../../assets/webimages/1061_64a3b9e62e1b8_360x540.jpg') },
-      { id: '2', title: 'Space Odyssey', source: require('../../../assets/webimages/1061_64a3f3bcb454c_360x540.jpg') },
-      { id: '3', title: 'Hidden Truths', source: require('../../../assets/webimages/1061_64c246faa4621_360x540.jpg') },
-      { id: '4', title: 'Urban Legends', source: require('../../../assets/webimages/1061_64f58df62ef08_360x540.jpg') },
-      { id: '5', title: 'Royal Heirs', source: require('../../../assets/webimages/1061_64f5941204ac8_360x540.jpg') },
+      { id: '1', title: 'Mystery Manor', source: require('../../../assets/webimages/img_1061_64a3b9e62e1b8_360x540.jpg') },
+      { id: '2', title: 'Space Odyssey', source: require('../../../assets/webimages/img_1061_64a3f3bcb454c_360x540.jpg') },
+      { id: '3', title: 'Hidden Truths', source: require('../../../assets/webimages/img_1061_64c246faa4621_360x540.jpg') },
+      { id: '4', title: 'Urban Legends', source: require('../../../assets/webimages/img_1061_64f58df62ef08_360x540.jpg') },
+      { id: '5', title: 'Royal Heirs', source: require('../../../assets/webimages/img_1061_64f5941204ac8_360x540.jpg') },
     ],
   },
   {
     id: '2',
     title: 'Top Rated',
     data: [
-      { id: '6', title: 'Legendary Battles', source: require('../../../assets/webimages/1061_64f6cc07b7a46_360x540.jpg') },
-      { id: '7', title: 'Cyber Detectives', source: require('../../../assets/webimages/1061_64f6cd2450c2a_360x540.jpg') },
-      { id: '8', title: 'Ghost Chasers', source: require('../../../assets/webimages/1061_64f6cef9bdbe4_360x540.jpg') },
-      { id: '9', title: 'Time Travelers', source: require('../../../assets/webimages/1061_64f6d02dac262_360x540.jpg') },
-      { id: '10', title: 'Island Secrets', source: require('../../../assets/webimages/1061_64f6d052762df_360x540.jpg') },
+      { id: '6', title: 'Legendary Battles', source: require('../../../assets/webimages/img_1061_64f6cc07b7a46_360x540.jpg') },
+      { id: '7', title: 'Cyber Detectives', source: require('../../../assets/webimages/img_1061_64f6cd2450c2a_360x540.jpg') },
+      { id: '8', title: 'Ghost Chasers', source: require('../../../assets/webimages/img_1061_64f6cef9bdbe4_360x540.jpg') },
+      { id: '9', title: 'Time Travelers', source: require('../../../assets/webimages/img_1061_64f6d02dac262_360x540.jpg') },
+      { id: '10', title: 'Island Secrets', source: require('../../../assets/webimages/img_1061_64f6d052762df_360x540.jpg') },
     ],
   },
   {
     id: '3',
     title: 'New Releases',
     data: [
-      { id: '11', title: 'Rogue Agents', source: require('../../../assets/webimages/1061_64f6d09a0d2a0_360x540.jpg') },
-      { id: '12', title: 'Parallel Worlds', source: require('../../../assets/webimages/1061_64f6d2f130b4c_360x540.jpg') },
-      { id: '13', title: 'Desert Storm', source: require('../../../assets/webimages/1061_64f6d4f999c10_360x540.jpg') },
-      { id: '14', title: 'Neon Nights', source: require('../../../assets/webimages/1061_64f6d51dd6a64_360x540.jpg') },
-      { id: '15', title: 'Dark Horizons', source: require('../../../assets/webimages/1061_64f6d581a1712_360x540.jpg') },
+      { id: '11', title: 'Rogue Agents', source: require('../../../assets/webimages/img_1061_64f6d09a0d2a0_360x540.jpg') },
+      { id: '12', title: 'Parallel Worlds', source: require('../../../assets/webimages/img_1061_64f6d2f130b4c_360x540.jpg') },
+      { id: '13', title: 'Desert Storm', source: require('../../../assets/webimages/img_1061_64f6d4f999c10_360x540.jpg') },
+      { id: '14', title: 'Neon Nights', source: require('../../../assets/webimages/img_1061_64f6d51dd6a64_360x540.jpg') },
+      { id: '15', title: 'Dark Horizons', source: require('../../../assets/webimages/img_1061_64f6d581a1712_360x540.jpg') },
     ],
   },
 ];
@@ -55,13 +55,13 @@ const HomeScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={[ 'top' ]}>
       <StatusBar translucent={false} backgroundColor={theme.colors.primary} barStyle="light-content" />
       <View style={styles.header}>
-        <Image source={require('../../../assets/logo_main.png')} style={styles.logo} />
+        <Image source={require('../../../assets/photo_2025_05_30_16_14_57.jpg')} style={styles.logo} />
         <Text style={styles.logoText}>Big Show</Text>
       </View>
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {sections.map((section) => (
           <View key={section.id} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -85,6 +85,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     paddingTop: theme.spacing.large,
     paddingBottom: theme.spacing.medium,
+  },
+  scrollContent: {
+    paddingBottom: theme.spacing.large + 60,
   },
   section: {
     marginBottom: theme.spacing.large,

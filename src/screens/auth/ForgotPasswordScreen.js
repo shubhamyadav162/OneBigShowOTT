@@ -18,7 +18,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
     Alert.alert(
       'Email Sent',
       `Password reset instructions have been sent to ${email}`,
-      [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+      [{ text: 'OK', onPress: () => navigation.navigate('LoginScreen') }]
     );
   };
 
@@ -69,7 +69,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.backToLogin}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.navigate('LoginScreen')}
           >
             <Text style={styles.backToLoginText}>Back to Login</Text>
           </TouchableOpacity>

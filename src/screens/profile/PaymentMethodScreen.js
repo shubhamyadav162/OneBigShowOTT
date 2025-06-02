@@ -8,21 +8,20 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  FlatList,
   ScrollView,
-  Linking,
   Dimensions,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import subscriptionApi from '../../api/subscriptionApi';
 import theme from '../../theme';
+import lightSpeedApi from '../../api/lightSpeedApi';
 
 const paymentMethods = [
-  { id: 'card', name: 'Credit / Debit Card', icon: 'credit-card' },
-  { id: 'upi', name: 'UPI', icon: 'account-balance-wallet' },
-  { id: 'netbanking', name: 'Net Banking', icon: 'public' },
-  { id: 'wallet', name: 'Wallet', icon: 'account-balance-wallet' },
+  { id: 'card', name: 'Credit / Debit Card', icon: 'credit-card', color: '#FF8A65' },
+  { id: 'upi', name: 'UPI', icon: 'account-balance-wallet', color: '#4DB6AC' },
+  { id: 'netbanking', name: 'Net Banking', icon: 'public', color: '#7986CB' },
+  { id: 'wallet', name: 'Wallet', icon: 'account-balance-wallet', color: '#FFD54F' },
 ];
 
 const { width } = Dimensions.get('window');
@@ -31,40 +30,57 @@ const cardWidth = (width - theme.spacing.medium * 3) / 2;
 const PaymentMethodScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const planId = route.params?.planId;
+  const plan = route.params?.plan;
 
-  const [plan, setPlan] = useState(null);
-  const [loadingPlan, setLoadingPlan] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [formData, setFormData] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState(null);
+  const SUCCESS_URL = 'bigshow://payment-success';
+  const FAIL_URL = 'bigshow://payment-failure';
 
   useEffect(() => {
-    if (!planId) {
+    if (!plan) {
       Alert.alert('Error', 'No plan selected / योजना निर्धारित नहीं हुई।');
       navigation.goBack();
     }
-  }, [planId]);
+  }, [plan]);
 
-  useEffect(() => {
-    const loadPlan = async () => {
-      const resp = await subscriptionApi.getSubscriptionPlans();
-      if (resp.success) {
-        const found = resp.data.plans.find(p => p.id === planId);
-        setPlan(found);
-      } else {
-        Alert.alert('Error', resp.error);
-        navigation.goBack();
-      }
-      setLoadingPlan(false);
-    };
-    loadPlan();
-  }, [planId]);
-
-  if (loadingPlan) {
+  if (paymentUrl) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <SafeAreaView style={{ flex: 1 }}>
+        <WebView
+          originWhitelist={[ 'http://*', 'https://*', 'bigshow://*' ]}
+          source={{ uri: paymentUrl }}
+          style={{ flex: 1 }}
+          onShouldStartLoadWithRequest={request => {
+            const { url } = request;
+            if (url.startsWith(SUCCESS_URL)) {
+              setPaymentUrl(null);
+              Alert.alert('Payment Successful', 'भुगतान सफल हुआ।');
+              return false;
+            }
+            if (url.startsWith(FAIL_URL)) {
+              setPaymentUrl(null);
+              Alert.alert('Payment Failed', 'भुगतान विफल हुआ।');
+              return false;
+            }
+            return true;
+          }}
+          onNavigationStateChange={navState => {
+            const { url } = navState;
+            if (url.startsWith(SUCCESS_URL)) {
+              setPaymentUrl(null);
+              Alert.alert('Payment Successful', 'भुगतान सफल हुआ।');
+            }
+            if (url.startsWith(FAIL_URL)) {
+              setPaymentUrl(null);
+              Alert.alert('Payment Failed', 'भुगतान विफल हुआ।');
+            }
+          }}
+          javaScriptEnabled
+          domStorageEnabled
+        />
       </SafeAreaView>
     );
   }
@@ -103,55 +119,36 @@ const PaymentMethodScreen = () => {
     }
     setIsProcessing(true);
     try {
-      const paymentDetails = { method: selectedMethod, details: formData };
-      const resp = await subscriptionApi.subscribeToPlan(planId, paymentDetails);
-      if (resp.success && resp.data.paymentUrl) {
-        Linking.openURL(resp.data.paymentUrl);
-      } else {
-        Alert.alert('Payment Error', resp.error || 'Failed to initiate payment.');
+      // Prepare payload for all selected payment methods
+      const payload = {
+        customerName: selectedMethod === 'upi'
+          ? formData.upiId
+          : (selectedMethod === 'card'
+              ? formData.cardName
+              : selectedMethod === 'netbanking'
+                ? formData.bankName
+                : formData.walletId),
+        amount: plan.price,
+        billId: plan.id,
+        description: plan.name,
+        method: selectedMethod,
+      };
+      if (selectedMethod === 'upi') {
+        payload.vpaId = formData.upiId;
       }
-    } catch (err) {
-      console.error(err);
+      const resp = await lightSpeedApi.initiateTransaction(payload);
+      if (resp.status === 'success' && resp.paymentLink) {
+        setPaymentUrl(resp.paymentLink);
+      } else {
+        Alert.alert('Payment Error', resp.message || 'Failed to initiate payment.');
+      }
+    } catch (error) {
+      console.error(error);
       Alert.alert('Error', 'कुछ गलत हो गया / Something went wrong.');
     } finally {
       setIsProcessing(false);
     }
   };
-
-  const renderMethod = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.methodCard,
-        { width: cardWidth },
-        selectedMethod === item.id && styles.selectedMethodCard,
-      ]}
-      onPress={() => setSelectedMethod(item.id)}
-      activeOpacity={0.8}
-    >
-      <Icon
-        name={item.icon}
-        size={36}
-        color={
-          selectedMethod === item.id
-            ? theme.colors.primary
-            : theme.colors.textSecondary
-        }
-      />
-      <Text
-        style={[
-          styles.methodText,
-          selectedMethod === item.id && { color: theme.colors.primary },
-        ]}
-      >
-        {item.name}
-      </Text>
-      {selectedMethod === item.id && (
-        <View style={styles.methodCheck}>
-          <Icon name="check-circle" size={20} color={theme.colors.primary} />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -167,45 +164,75 @@ const PaymentMethodScreen = () => {
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.planInfo}>
-          <Text style={styles.planName}>{plan.name}</Text>
+          <Text style={styles.planName}>{plan.name || plan.label}</Text>
           <Text style={styles.planPrice}>
-            ₹{plan.price}/{plan.billingCycle}
+            ₹{plan.price}/{plan.billingCycle || plan.duration}
           </Text>
         </View>
         <Text style={styles.chooseText}>
           अनुरोध विधि चुनें / Choose a Method
         </Text>
-        <FlatList
-          data={paymentMethods}
-          renderItem={renderMethod}
-          keyExtractor={item => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={{ paddingBottom: theme.spacing.large }}
-        />
+        {/* Method selection */}
+        {!selectedMethod && (
+          <View style={styles.methodsContainer}>
+            {paymentMethods.map(item => {
+              const isSelected = selectedMethod === item.id;
+              const backgroundColor = isSelected ? item.color : theme.colors.backgroundLight;
+              const iconColor = isSelected ? '#fff' : item.color;
+              const textColor = isSelected ? '#fff' : theme.colors.textSecondary;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.methodCard, { width: cardWidth, backgroundColor }]}
+                  onPress={() => setSelectedMethod(item.id)}
+                  activeOpacity={0.8}
+                >
+                  <Icon name={item.icon} size={36} color={iconColor} />
+                  <Text style={[styles.methodText, { color: textColor }]}> {item.name} </Text>
+                  {isSelected && (
+                    <View style={styles.methodCheck}>
+                      <Icon name="check-circle" size={20} color="#fff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        {selectedMethod && (
+          <TouchableOpacity style={styles.changeMethodBtn} onPress={() => setSelectedMethod(null)}>
+            <Text style={styles.changeMethodText}>Change Method</Text>
+          </TouchableOpacity>
+        )}
         {selectedMethod === 'card' && (
           <View style={styles.form}>
+            <Text style={styles.inputLabel}>Card Number</Text>
             <TextInput
               style={styles.input}
-              placeholder="Card Number"
+              placeholder="1234 5678 9012 3456"
+              placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={formData.cardNumber}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, cardNumber: text }))
               }
             />
+            <Text style={styles.inputLabel}>Expiry (MM/YY)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Expiry (MM/YY)"
+              placeholder="MM/YY"
+              placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={formData.expiry}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, expiry: text }))
               }
             />
+            <Text style={styles.inputLabel}>CVV</Text>
             <TextInput
               style={styles.input}
               placeholder="CVV"
+              placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               secureTextEntry
               value={formData.cvv}
@@ -213,9 +240,11 @@ const PaymentMethodScreen = () => {
                 setFormData(prev => ({ ...prev, cvv: text }))
               }
             />
+            <Text style={styles.inputLabel}>Name on Card</Text>
             <TextInput
               style={styles.input}
-              placeholder="Name on Card"
+              placeholder="Name on card"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.cardName}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, cardName: text }))
@@ -225,9 +254,11 @@ const PaymentMethodScreen = () => {
         )}
         {selectedMethod === 'upi' && (
           <View style={styles.form}>
+            <Text style={styles.inputLabel}>UPI ID</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter UPI ID"
+              placeholder="example@upi"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.upiId}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, upiId: text }))
@@ -237,17 +268,21 @@ const PaymentMethodScreen = () => {
         )}
         {selectedMethod === 'netbanking' && (
           <View style={styles.form}>
+            <Text style={styles.inputLabel}>Bank Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="Bank Name"
+              placeholder="Enter bank name"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.bankName}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, bankName: text }))
               }
             />
+            <Text style={styles.inputLabel}>Account Number</Text>
             <TextInput
               style={styles.input}
-              placeholder="Account Number"
+              placeholder="Enter account number"
+              placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={formData.accountNumber}
               onChangeText={text =>
@@ -258,9 +293,11 @@ const PaymentMethodScreen = () => {
         )}
         {selectedMethod === 'wallet' && (
           <View style={styles.form}>
+            <Text style={styles.inputLabel}>Wallet ID / Number</Text>
             <TextInput
               style={styles.input}
-              placeholder="Wallet ID / Number"
+              placeholder="Enter wallet ID"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.walletId}
               onChangeText={text =>
                 setFormData(prev => ({ ...prev, walletId: text }))
@@ -344,9 +381,11 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.medium,
     textAlign: 'center',
   },
-  row: {
+  methodsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.medium,
+    paddingBottom: theme.spacing.large,
   },
   methodCard: {
     backgroundColor: theme.colors.backgroundLight,
@@ -397,6 +436,20 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     backgroundColor: theme.colors.inactive,
+  },
+  changeMethodBtn: {
+    alignSelf: 'center',
+    marginVertical: theme.spacing.medium,
+  },
+  changeMethodText: {
+    color: theme.colors.primary,
+    fontSize: theme.typography.fontSize.medium,
+    textDecorationLine: 'underline',
+  },
+  inputLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.fontSize.small,
+    marginBottom: theme.spacing.tiny,
   },
 });
 

@@ -2,9 +2,8 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { auth } from '../../lib/firebaseClient';
 import Constants from 'expo-constants';
 
 // Ensure WebBrowser is configured to handle the auth session
@@ -29,33 +28,33 @@ const GoogleSignInButton = ({ onSignInComplete, buttonStyle, textStyle }) => {
   const expoConfig = getExpoConfig();
   const extra = expoConfig?.extra || {};
   
-  // Try different possible key names for Android Client ID
-  const androidClientId = 
-    extra.androidClientId || 
-    extra.GOOGLE_ANDROID_CLIENT_ID || 
-    extra.ANDROID_CLIENT_ID || 
-    '363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com';
+  // Get client IDs from config
+  const androidClientId = extra.androidClientId || extra.GOOGLE_ANDROID_CLIENT_ID;
+  const webClientId = extra.webClientId || extra.GOOGLE_WEB_CLIENT_ID;
   
-  // Try different possible key names for Web Client ID
-  const webClientId = 
-    extra.webClientId || 
-    extra.GOOGLE_WEB_CLIENT_ID || 
-    extra.WEB_CLIENT_ID || 
-    '363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com';
-  
+  // If client IDs are missing, set error and disable button
+  const configError = !androidClientId || !webClientId;
+  React.useEffect(() => {
+    if (configError) {
+      setError('Google Sign-In is not configured properly. Please contact support.');
+    }
+  }, [configError]);
+
   // Log config for debugging
   console.log('Google Sign-In Config:', { 
-    androidClientId: androidClientId,
-    webClientId: webClientId,
+    androidClientId,
+    webClientId,
     extraKeys: Object.keys(extra)
   });
 
-  // Configure Google authentication
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: webClientId,
-    androidClientId: androidClientId,
-    webClientId: webClientId,
-  });
+  // Configure Google authentication, using Expo proxy by default
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
+    {
+      androidClientId,
+      webClientId,
+      // iosClientId: extra.iosClientId || extra.GOOGLE_IOS_CLIENT_ID, // add if you have an iOS OAuth client
+    }
+  );
 
   React.useEffect(() => {
     // Handle the authentication response
@@ -90,11 +89,12 @@ const GoogleSignInButton = ({ onSignInComplete, buttonStyle, textStyle }) => {
   const handlePress = async () => {
     setError(null);
     setLoading(true);
+    
     try {
       await promptAsync();
     } catch (error) {
       console.error('Error starting Google sign-in:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to start Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -103,9 +103,9 @@ const GoogleSignInButton = ({ onSignInComplete, buttonStyle, textStyle }) => {
   return (
     <>
       <TouchableOpacity
-        style={[styles.button, buttonStyle]}
+        style={[styles.button, buttonStyle, configError && { backgroundColor: '#888' }]}
         onPress={handlePress}
-        disabled={loading || !request}
+        disabled={loading || !request || configError}
       >
         {loading ? (
           <ActivityIndicator color="#ffffff" size="small" />
@@ -116,7 +116,9 @@ const GoogleSignInButton = ({ onSignInComplete, buttonStyle, textStyle }) => {
           </View>
         )}
       </TouchableOpacity>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={[styles.errorText, { fontWeight: 'bold', fontSize: 14 }]}>{error}</Text>
+      )}
     </>
   );
 };

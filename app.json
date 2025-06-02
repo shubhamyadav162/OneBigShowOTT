@@ -1,22 +1,18 @@
 {
   "expo": {
-    "splash": {
-      "image": "./assets/logo_main.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "name": "Big Show",
     "slug": "big-show",
-    "scheme": "bigshow",
+    "icon": "./assets/logo_main.png",
+    "scheme": "com.bigshow.app",
     "version": "1.0.0",
     "assetBundlePatterns": [
       "**/*"
     ],
     "web": {
-      "favicon": "./assets/logo_main.png"
+      "favicon": "./assets/favicon.png"
     },
     "android": {
-      "package": "com.shubhamyadav1.bigshow",
+      "package": "com.bigshow",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo_main.png",
         "backgroundColor": "#ffffff"
@@ -28,7 +24,24 @@
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE"
       ],
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.bigshow.app",
+              "host": "payment-callback"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "androidNavigationBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#000000"
     },
     "plugins": [
       [
@@ -40,47 +53,62 @@
             "buildToolsVersion": "34.0.0",
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "kotlinVersion": "1.7.1"
+            "extraPropertiesInBuildGradle": {
+              "android.ndkVersion": "23.1.7779620"
+            }
           }
         }
       ],
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#000000",
-          "image": "./assets/logo_main.png",
-          "resizeMode": "contain"
-        }
-      ]
+      "expo-dev-client"
     ],
     "extra": {
+      "FIREBASE_API_KEY": "AIzaSyAA_XTRI1oT_M2GWKSqEkCAgOQQ4pcArXU",
+      "FIREBASE_AUTH_DOMAIN": "bigshow-ott.firebaseapp.com",
+      "FIREBASE_PROJECT_ID": "bigshow-ott",
+      "FIREBASE_STORAGE_BUCKET": "bigshow-ott.firebasestorage.app",
+      "FIREBASE_MESSAGING_SENDER_ID": "629266811201",
+      "FIREBASE_APP_ID": "1:629266811201:android:c8624d932eda19029a39c0",
+      "FIREBASE_MEASUREMENT_ID": "",
+      "GOOGLE_ANDROID_CLIENT_ID": "1089697091920-h9blj63cb9m2lqaruiq2q8ni6aiblqdq.apps.googleusercontent.com",
+      "GOOGLE_WEB_CLIENT_ID": "1089697091920-h9blj63cb9m2lqaruiq2q8ni6aiblqdq.apps.googleusercontent.com",
+      "androidClientId": "1089697091920-h9blj63cb9m2lqaruiq2q8ni6aiblqdq.apps.googleusercontent.com",
+      "webClientId": "1089697091920-h9blj63cb9m2lqaruiq2q8ni6aiblqdq.apps.googleusercontent.com",
+      "BUNNY_STORAGE_ZONE": "bigshowottt",
+      "BUNNY_STORAGE_API_KEY": "a16aa13e-e73d-4bd1-88044675a471-8c68-4849",
+      "BUNNY_STREAM_LIBRARY_ID": "448273",
+      "BUNNY_STREAM_CDN_HOSTNAME": "vz-c1ea5c2b-312.b-cdn.net",
+      "BUNNY_STREAM_API_KEY": "19c3c639-51d8-4aaf-8cc6ff6e2296-601a-47d0",
+      "LIGHTSPEED_API_KEY": "<YOUR_LIGHTSPEED_API_KEY>",
+      "LIGHTSPEED_API_SECRET": "<YOUR_LIGHTSPEED_API_SECRET>",
+      "LIGHTSPEED_ENV": "sandbox",
+      "LIGHTSPEED_WEBHOOK_TOKEN": "<YOUR_LIGHTSPEED_WEBHOOK_TOKEN>",
+      "SUPABASE_URL": "https://hjsdcsatfcysrwsryngu.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqc2Rjc2F0ZmN5c3J3c3J5bmd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMDIwOTEsImV4cCI6MjA2MjY3ODA5MX0.2L1gHtRKDrfBdEIfK+Lz+5HMHeLmm1TDVyWBsB8iwX3I7vBMYmBTlVqpgiFXCzxX6AXXXXE+pUDp5C2j3JTNyw",
       "eas": {
-        "projectId": "e443ff19-a088-453f-b755-1da94ddc61f6"
-      },
-      "FIREBASE_API_KEY": "AIzaSyBtYkUzRdHLZWLfMnXBGMF8VWmEI0dFiMw",
-      "FIREBASE_AUTH_DOMAIN": "bigshow-dev.firebaseapp.com",
-      "FIREBASE_PROJECT_ID": "bigshow-dev",
-      "FIREBASE_STORAGE_BUCKET": "bigshow-dev.appspot.com",
-      "FIREBASE_MESSAGING_SENDER_ID": "363171386735",
-      "FIREBASE_APP_ID": "1:363171386735:web:5a47d94cd8edace5e03b8c",
-      "GOOGLE_ANDROID_CLIENT_ID": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com",
-      "GOOGLE_WEB_CLIENT_ID": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com",
-      "androidClientId": "363171386735-3m36t21s3nv6qa6ufb8dlpg4c09cjlfd.apps.googleusercontent.com",
-      "BUNNY_STORAGE_ZONE": "bigshow",
-      "BUNNY_STORAGE_API_KEY": "5d330187-9ffb-4db6-992a-3cc6833f18940e6bbbe1-e118-43ed-8c35-ad75a4dfaf5f",
-      "BUNNY_STREAM_LIBRARY_ID": "425837",
-      "BUNNY_STREAM_CDN_HOSTNAME": "vz-ac925eab-8c7.b-cdn.net",
-      "BUNNY_STREAM_API_KEY": "b77199c3-2a8c-473e-a1b73b510fc0-4083-4687"
-    },
-    "ios": {
-      "bundleIdentifier": "com.shubhamyadav1.bigshow",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "projectId": "9a3fa05a-6d93-49df-8f7b-f2d86815de01"
       }
     },
-    "packagerOpts": {
-      "config": "metro.config.js",
-      "sourceExts": ["js", "jsx", "ts", "tsx", "svg"]
+    "ios": {
+      "bundleIdentifier": "com.bigshow",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["com.bigshow.app"]
+          }
+        ]
+      }
+    },
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0
+    },
+    "owner": "shubham1614",
+    "splash": {
+      "image": "./assets/splash1.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
     }
   }
 }

@@ -7,15 +7,13 @@ import theme from '../../theme';
 import AuthContext from '../../context/AuthContext';
 import authApi from '../../api/authApi';
 import usersApi from '../../api/usersApi';
-import { auth } from '../../utils/firebase';
-import { updateProfile } from 'firebase/auth';
 
-const SignupScreen = ({ navigation }) => {
+export default function SignupScreen(props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { signUp } = useContext(AuthContext);
+  const { signOut } = useContext(AuthContext);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -33,12 +31,16 @@ const SignupScreen = ({ navigation }) => {
     try {
       const res = await authApi.register(email, password, name);
       if (res.success) {
-        // Update Firebase Auth profile
-        await updateProfile(auth.currentUser, { displayName: name });
         // Create Firestore user profile
         await usersApi.createUserProfile({ uid: res.data.uid, email: res.data.email, name });
-        // Sign in and navigate to main app
-        signUp(res.data.uid);
+        // Sign out unverified user to prevent auto-login
+        await signOut();
+        // Notify user to verify email
+        Alert.alert(
+          'Signup Successful',
+          'Verification email sent. Please check your inbox and verify your email before logging in.'
+        );
+        props.navigation.navigate('Login');
       } else {
         Alert.alert('Signup Error', res.error);
       }
@@ -60,7 +62,7 @@ const SignupScreen = ({ navigation }) => {
       >
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => props.navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -169,7 +171,7 @@ const SignupScreen = ({ navigation }) => {
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Already have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <TouchableOpacity onPress={() => props.navigation.navigate('Login')}>
               <Text style={styles.footerLink}>Login</Text>
             </TouchableOpacity>
           </View>
@@ -177,7 +179,7 @@ const SignupScreen = ({ navigation }) => {
       </ScrollView>
     </LinearGradient>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -284,6 +286,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-});
-
-export default SignupScreen; 
+}); 
