@@ -110,7 +110,7 @@ jobs:
       - name: Login to Supabase
         run: |
           supabase login --no-browser --token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          supabase link --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1)
+          echo "Supabase login complete; skipping project link to avoid DB auth issues."
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
 
