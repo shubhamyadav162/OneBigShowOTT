@@ -116,11 +116,9 @@ jobs:
 
       - name: Deploy Edge Functions
         run: |
-          # Deploy each function to Supabase
-          cd supabase/functions
           echo "Deploying edge functions to Supabase..."
-          for func_dir in */; do
-            func_name="${func_dir%/}"
+          for dir in supabase/functions/*/; do
+            func_name=$(basename "$dir")
             echo "Deploying $func_name function..."
             supabase functions deploy $func_name --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1) --no-verify-jwt
           done
