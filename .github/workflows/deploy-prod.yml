@@ -94,10 +94,18 @@ jobs:
 
       - name: Install Supabase CLI (For Edge Functions)
         run: |
-          # Install Supabase CLI directly from GitHub releases instead of npm
-          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_$(uname -s)_x64.tar.gz | tar xz
+          # Get latest release URL directly
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest \
+            | grep "browser_download_url.*linux_amd64.tar.gz" \
+            | cut -d '"' -f 4)
+          
+          # Download using resolved URL
+          curl -L -o supabase.tar.gz "$DOWNLOAD_URL"
+          
+          # Extract, install and verify
+          tar -xzf supabase.tar.gz
+          chmod +x supabase
           sudo mv supabase /usr/local/bin
-          # Verify installation
           supabase --version
           
       - name: Login to Supabase
