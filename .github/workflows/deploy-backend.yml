@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,15 +14,37 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          deno-version: v1.x
+          node-version: '18'
+          cache: 'npm'
 
       - name: Setup Supabase CLI
         run: |
           curl -L https://github.com/supabase/cli/releases/latest/download/supabase_$(uname -s)_x64.tar.gz | tar xz
           sudo mv supabase /usr/local/bin
+          supabase --version
+
+      - name: Login to Supabase
+        run: |
+          supabase login --no-browser --token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase link --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+
+      - name: Apply database migrations
+        run: |
+          # Check if we have migrations to apply
+          if [ -d "supabase/migrations" ] && [ "$(ls -A supabase/migrations)" ]; then
+            echo "Applying database migrations..."
+            supabase db push --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1)
+          else
+            echo "No migrations to apply"
+          fi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Load Environment Variables
         run: |
@@ -32,4 +57,18 @@ jobs:
         run: |
           supabase login --no-browser --token ${{ secrets.SUPABASE_CLI_TOKEN }}
           supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-          mcp deploy --profile production 
+          # Deploy functions using Supabase CLI
+          cd supabase/functions
+          echo "Deploying edge functions to Supabase..."
+          for func_dir in */; do
+            func_name="${func_dir%/}"
+            echo "Deploying $func_name function..."
+            supabase functions deploy $func_name --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --no-verify-jwt
+          done
+          
+          # Apply migrations if any
+          cd ../migrations
+          if [ -n "$(ls *.sql 2>/dev/null)" ]; then
+            echo "Applying migrations..."
+            supabase db push
+          fi 
