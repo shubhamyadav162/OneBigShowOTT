@@ -188,11 +188,10 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build and submit to app stores
+      - name: Queue Android EAS build (no submit)
         run: |
-          echo "Building and submitting app to stores"
+          echo "Building and queueing Android app"
           eas build --platform android --profile production --non-interactive --no-wait
-          eas submit --platform android --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           NODE_ENV: production
