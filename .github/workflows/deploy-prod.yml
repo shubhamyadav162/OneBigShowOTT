@@ -102,10 +102,9 @@ jobs:
           # Download using resolved URL
           curl -L -o supabase.tar.gz "$DOWNLOAD_URL"
           
-          # Extract, install and verify
-          tar -xzf supabase.tar.gz
-          chmod +x supabase
-          sudo mv supabase /usr/local/bin
+          # Extract directly into /usr/local/bin, install and verify
+          sudo tar -xzf supabase.tar.gz -C /usr/local/bin
+          sudo chmod +x /usr/local/bin/supabase
           supabase --version
           
       - name: Login to Supabase
