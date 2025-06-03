@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -29,22 +32,38 @@ jobs:
           # Verify installation
           supabase --version
 
+      - name: Print environment for debugging
+        run: |
+          echo "Listing supabase directory:"
+          ls -la supabase || echo "No supabase directory found"
+          echo "Listing supabase/functions directory:"
+          ls -la supabase/functions || echo "No supabase/functions directory found"
+
       - name: Login to Supabase
         run: |
+          echo "Logging into Supabase..."
           supabase login --no-browser --token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          supabase link --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1)
+          echo "Linking project..."
+          supabase link --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1) || echo "Failed to link project"
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
 
       - name: Deploy Edge Functions
         run: |
           # Deploy each function to Supabase
-          cd supabase/functions
+          cd supabase/functions || exit 1
           echo "Deploying edge functions to Supabase..."
+          
+          # List functions for debugging
+          echo "Available functions:"
+          ls -la
+          
           for func_dir in */; do
-            func_name="${func_dir%/}"
-            echo "Deploying $func_name function..."
-            supabase functions deploy $func_name --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1) --no-verify-jwt
+            if [ -d "$func_dir" ]; then
+              func_name="${func_dir%/}"
+              echo "Deploying $func_name function..."
+              supabase functions deploy $func_name --project-ref $(echo $SUPABASE_URL | cut -d '/' -f3 | cut -d '.' -f1) --no-verify-jwt
+            fi
           done
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
