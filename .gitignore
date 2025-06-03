@@ -10,3 +10,5 @@ node_modules/
 node_modules/
 .env
 creds.json
+credentials.txt
+token.txt
