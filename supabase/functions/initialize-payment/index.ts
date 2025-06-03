@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { v4 } from "https://deno.land/std@0.177.0/uuid/mod.ts";
+
 
 // Supabase प्रोजेक्ट सेटिंग्स पर्यावरण चर से
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "https://hjsdcsatfcysrwsryngu.supabase.co";
