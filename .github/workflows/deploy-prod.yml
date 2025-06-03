@@ -183,11 +183,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Login to Expo
+        run: eas login --token ${{ secrets.EXPO_TOKEN }} --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
       - name: Build and submit to app stores
         run: |
           echo "Building and submitting app to stores"
-          eas build --platform all --profile production --non-interactive --no-wait
-          eas submit --platform all --profile production --non-interactive
+          eas build --platform android --profile production --non-interactive --no-wait
+          eas submit --platform android --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           NODE_ENV: production
