@@ -42,7 +42,7 @@
         "LIGHTSPEED_API_KEY": "b7f32871-b355-4aa7-96cb-a0fe3821b368",
         "LIGHTSPEED_API_SECRET": "1uFp3tNWlS4PzmvyYPEnaM2sHIqYEbir"
       },
-      "prebuildCommand": "npm install && node scripts/prepare-eas-build.js"
+      "prebuildCommand": "npm install && expo node scripts/prepare-eas-build.js"
     },
     "preview-local": {
       "android": {
@@ -64,7 +64,7 @@
         "LIGHTSPEED_API_KEY": "b7f32871-b355-4aa7-96cb-a0fe3821b368",
         "LIGHTSPEED_API_SECRET": "1uFp3tNWlS4PzmvyYPEnaM2sHIqYEbir"
       },
-      "prebuildCommand": "npm install && node scripts/prepare-eas-build.js"
+      "prebuildCommand": "npm install && expo node scripts/prepare-eas-build.js"
     },
     "local": {
       "android": {
@@ -74,7 +74,7 @@
         "image": "ubuntu-22.04-jdk-17-ndk-r21e"
       },
       "developmentClient": false,
-      "prebuildCommand": "npm install && node scripts/prepare-eas-build.js"
+      "prebuildCommand": "expo node scripts/prebuild-wrapper.js"
     },
     "production": {
       "distribution": "store",
@@ -102,13 +102,13 @@
         "SUPABASE_DB_PASSWORD": "GZ7rsixQGl1ZBZ6R",
         "SUPABASE_REGION": "ap-south-1",
         "SUPABASE_ACCESS_TOKEN": "sbp_9a62944d9539e276e7d5a523b9bd53023787c045",
-        "NODE_ENV": "production",
         "LIGHTSPEED_ENV": "live",
         "LIGHTSPEED_API_KEY": "your-live-lightspeed-api-key",
         "LIGHTSPEED_API_SECRET": "your-live-lightspeed-api-secret",
-        "APP_URL": "https://onebigshow.com"
+        "APP_URL": "https://onebigshow.com",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
       },
-      "prebuildCommand": "npm install && node scripts/prepare-eas-build.js && node scripts/verify-subscription-system.js --prod"
+      "prebuildCommand": "expo node scripts/prebuild-wrapper.js"
     }
   },
   "submit": {
